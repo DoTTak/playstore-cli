@@ -4,12 +4,46 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import auth, browser, checkin, store
+from . import auth, browser, checkin, session, store
+from .api import PlayApi, PlayApiError
 from .device import DEFAULT_PROFILE, Profile
+
+
+class _Missing(Exception):
+    """앞 단계(login, checkin) 결과가 없음."""
 
 
 def _mask(token: str) -> str:
     return f"{token[:12]}… ({len(token)}자)"
+
+
+def _account() -> dict:
+    account = store.load_account()
+    if not account:
+        raise _Missing("저장된 계정이 없습니다. 먼저 login 을 실행하세요.")
+    return account
+
+
+def _device() -> dict:
+    device = store.load_device()
+    if not device:
+        raise _Missing("등록된 기기가 없습니다. 먼저 checkin 을 실행하세요.")
+    return device
+
+
+def _new_session(account: dict, device: dict) -> dict:
+    print("Play 세션 생성 중...")
+    sess = session.build(account, device, log=lambda m: print(f"  {m}"))
+    store.save_session(sess)
+    return sess
+
+
+def _play_api(*, fresh: bool = False) -> PlayApi:
+    account, device = _account(), _device()
+    sess = None if fresh else store.load_session()
+    if not sess or sess.get("gsfId") != device["gsfId"]:  # 기기를 새로 등록했으면 세션도 새로
+        sess = _new_session(account, device)
+    return PlayApi(device, sess)
 
 
 def cmd_login(args) -> int:
@@ -32,10 +66,7 @@ def cmd_login(args) -> int:
 
 
 def cmd_checkin(args) -> int:
-    account = store.load_account()
-    if not account:
-        print("저장된 계정이 없습니다. 먼저 login 을 실행하세요.", file=sys.stderr)
-        return 1
+    account = _account()
     existing = store.load_device()
     if existing and not args.force:
         # checkin 할 때마다 계정에 새 기기가 등록되므로, 있으면 재사용한다
@@ -53,6 +84,34 @@ def cmd_checkin(args) -> int:
                               "timezone": args.timezone, **result})
     print(f"gsfId: {result['gsfId']}")
     print(f"저장: {path}")
+    return 0
+
+
+def cmd_session(args) -> int:
+    _new_session(_account(), _device())
+    print(f"저장: {store.session_path()}")
+    return 0
+
+
+def cmd_details(args) -> int:
+    try:
+        doc = _play_api().details(args.package)
+    except PlayApiError as e:
+        if e.status != 401:
+            raise
+        print("Play 토큰이 만료돼 세션을 새로 만듭니다.")
+        doc = _play_api(fresh=True).details(args.package)
+    if not doc.docid:
+        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        return 1
+    a = doc.details.appDetails
+    print(f"제목     {doc.title}")
+    print(f"패키지   {a.packageName or doc.docid}")
+    print(f"버전     {a.versionString} ({a.versionCode})")
+    print(f"개발자   {a.developerName or doc.creator}")
+    print(f"업데이트 {a.uploadDate}")
+    print(f"설치수   {a.numDownloads}")  # 값에 "다운로드 …회 이상" 문구가 포함돼 옴
+    print(f"크기     {a.installationSize / 1024 / 1024:.1f} MB")
     return 0
 
 
@@ -74,10 +133,18 @@ def main(argv=None) -> int:
     ci.add_argument("--force", action="store_true", help="등록된 기기가 있어도 새로 등록")
     ci.set_defaults(func=cmd_checkin)
 
+    se = sub.add_parser("session", help="Play 세션 생성 (Play 토큰·기기 구성 업로드·약관)")
+    se.set_defaults(func=cmd_session)
+
+    de = sub.add_parser("details", help="앱 상세 정보 조회")
+    de.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    de.set_defaults(func=cmd_details)
+
     args = p.parse_args(argv)
     try:
         return args.func(args)
-    except (browser.LoginError, auth.AuthError, checkin.CheckinError, ValueError) as e:
+    except (_Missing, browser.LoginError, auth.AuthError, checkin.CheckinError, PlayApiError,
+            ValueError) as e:
         print(f"실패: {e}", file=sys.stderr)
         return 1
 

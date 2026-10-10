@@ -32,3 +32,12 @@ def test_save_and_load_device(tmp_path, monkeypatch):
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     data = store.load_device()
     assert (data["profile"], data["gsfId"]) == ("pixel_9a", "3a1b") and data["checkedInAt"]
+
+
+def test_save_and_load_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLAYSTORE_HOME", str(tmp_path))
+    path = store.save_session({"gsfId": "3a1b", "authToken": "t"})
+
+    assert path == tmp_path / "session.json"
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert store.load_session()["authToken"] == "t"

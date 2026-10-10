@@ -74,3 +74,73 @@ message AndroidCheckinResponse {
   optional fixed64 securityToken = 8;
   optional string deviceCheckinConsistencyToken = 12;
 }
+
+// --- fdfe API 공통 (android.clients.google.com/fdfe/*) ----------------------
+
+message ResponseWrapper {
+  optional Payload payload = 1;
+  optional ServerCommands commands = 2;
+}
+
+message ServerCommands {
+  optional bool clearCache = 1;
+  optional string displayErrorMessage = 2;   // "Item not found." 등
+  optional string logErrorStacktrace = 3;
+}
+
+message Payload {
+  optional DetailsResponse detailsResponse = 2;
+  optional TocResponse tocResponse = 6;
+  optional AcceptTosResponse acceptTosResponse = 22;
+  optional UploadDeviceConfigResponse uploadDeviceConfigResponse = 28;
+}
+
+// --- Play 세션 (uploadDeviceConfig, toc, acceptTos) --------------------------
+
+message UploadDeviceConfigRequest {
+  optional DeviceConfigurationProto deviceConfiguration = 1;
+  optional string manufacturer = 2;
+  optional string gcmRegistrationId = 3;
+}
+
+message UploadDeviceConfigResponse {
+  optional string uploadDeviceConfigToken = 1;  // → X-DFE-Device-Config-Token
+}
+
+message TocResponse {
+  optional string tosContent = 3;
+  optional string tosToken = 7;                 // acceptTos 의 tost
+  optional bool requiresUploadDeviceConfig = 11;
+  optional string cookie = 22;                  // → X-DFE-Cookie
+}
+
+message AcceptTosResponse {
+}
+
+// --- details (fdfe/details?doc=<패키지>) -------------------------------------
+
+message DetailsResponse {
+  optional DocV2 docV2 = 4;
+}
+
+message DocV2 {
+  optional string docid = 1;
+  optional string title = 5;
+  optional string creator = 6;
+  optional DocumentDetails details = 13;
+}
+
+message DocumentDetails {
+  optional AppDetails appDetails = 1;
+}
+
+message AppDetails {
+  optional string developerName = 1;
+  optional int32 versionCode = 3;
+  optional string versionString = 4;
+  optional string title = 5;
+  optional int64 installationSize = 9;
+  optional string numDownloads = 13;
+  optional string packageName = 14;
+  optional string uploadDate = 16;
+}

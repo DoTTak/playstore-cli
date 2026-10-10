@@ -23,6 +23,10 @@ def device_path() -> Path:
     return home() / "device.json"
 
 
+def session_path() -> Path:
+    return home() / "session.json"
+
+
 def chrome_profile_dir() -> Path:
     return home() / "chrome-profile"
 
@@ -56,3 +60,12 @@ def save_device(data: dict, path: Path | None = None) -> Path:
 
 def load_device(path: Path | None = None) -> dict | None:
     return _read(path or device_path())
+
+
+def save_session(data: dict, path: Path | None = None) -> Path:
+    """Play 세션 (Play 토큰, deviceConfigToken, dfeCookie). 만료되면 AAS 로 다시 만든다."""
+    return _write_private(path or session_path(), {**data, "createdAt": int(time.time())})
+
+
+def load_session(path: Path | None = None) -> dict | None:
+    return _read(path or session_path())
