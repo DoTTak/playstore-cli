@@ -58,13 +58,33 @@ Install: adb install-multiple downloads/com.google.android.youtube-1561190505/*.
 
 ## Installation
 
-Requires Python 3.10+. Install it as a command-line tool with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
+Requires Python 3.10+. Install it as a command-line tool with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/), which keep it in an environment of its own (uv also fetches a newer Python if yours is too old):
 
 ```bash
 uv tool install playstore-cli
 # or
 pipx install playstore-cli
 ```
+
+To try it without installing, run it with `uvx`. The sign-in is saved in `~/.config/playstore-cli` (see [Storage](#storage)), not in uvx's environment, so it carries over to later runs and to an installed copy:
+
+```bash
+uvx playstore-cli login
+uvx playstore-cli checkin
+uvx playstore-cli search youtube
+```
+
+Or with pip, preferably in a virtual environment:
+
+```bash
+python3 -m venv .venv          # Python 3.10 or newer
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install playstore-cli
+```
+
+> [!NOTE]
+> `No matching distribution found for playstore-cli` means pip is running on a Python older than 3.10.
+> Check with `pip --version`, then use the pip of a newer Python, for example `python3.12 -m pip install playstore-cli`.
 
 From a clone of this repository:
 
