@@ -1,6 +1,6 @@
 [project]
 name = "playstore-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Unofficial Google Play Store client (for research and learning)"
 readme = "README.md"
 license = "Apache-2.0"
