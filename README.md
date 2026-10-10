@@ -6,6 +6,7 @@ Play 스토어 앱이 쓰는 내부 API(fdfe)를 직접 호출해서 다음을 �
 
 - 구글 계정 로그인, 가상 기기 등록
 - 앱 검색, 상세 정보와 권한 목록 조회
+- 평점 요약과 리뷰(개발자 답변 포함) 조회
 - 정식 서명 인증서 해시(SHA-1, SHA-256) 조회. 실제 APK의 서명 블록과 대조도 가능
 - APK 다운로드 (base·split APK, OBB, 과거 버전)
 
@@ -26,6 +27,7 @@ uv run python -m playstore login                               # 1. 구글 로�
 uv run python -m playstore checkin                             # 2. 가상 기기 등록 → gsfId
 uv run python -m playstore search youtube                      # 패키지명 찾기
 uv run python -m playstore details com.google.android.youtube  # 상세 정보·권한
+uv run python -m playstore reviews com.google.android.youtube  # 평점·리뷰
 uv run python -m playstore cert com.google.android.youtube     # 정식 서명 해시
 uv run python -m playstore download com.google.android.youtube # APK 다운로드
 ```
@@ -41,6 +43,7 @@ uv run python -m playstore download com.google.android.youtube # APK 다운로�
 | `session` | Play 세션 생성 (보통은 자동으로 만들어져서 직접 쓸 일이 없음) |
 | `search <검색어>` | 앱 검색 |
 | `details <패키지>` | 앱 상세 정보와 권한 목록 |
+| `reviews <패키지>` | 평점 요약과 리뷰 |
 | `cert <패키지>` | 정식 서명 인증서의 SHA-1, SHA-256 |
 | `download <패키지>` | base·split APK와 OBB 다운로드 |
 
@@ -99,6 +102,33 @@ uv run python -m playstore details com.google.android.youtube
 ```
 
 권한 목록은 매니페스트를 그대로 옮긴 것이 아니라 **Play가 이 기기에 맞게 가공한 목록**입니다. 매니페스트에서 `maxSdkVersion`이 기기 SDK보다 낮은 권한은 빠지고, 암묵적 권한은 더해집니다. 예를 들어 YouTube는 매니페스트에 50개가 있고, `WRITE_EXTERNAL_STORAGE` 때문에 자동으로 붙는 `READ_EXTERNAL_STORAGE`가 더해져 51개입니다.
+
+### reviews
+
+```bash
+uv run python -m playstore reviews com.google.android.youtube [-n 20] [-s relevant|newest] [-r 1-5]
+```
+
+```
+YouTube — 평점 2.9 (160,324,551명)
+  ★5  37%  59,074,443
+  ★4   7%  11,500,112
+  ★3   7%  11,071,837
+  ★2   6%  9,385,479
+  ★1  43%  69,292,286
+
+리뷰 20개 (관련성순)
+
+  1. ★★★★☆  <작성자> · 2026-07-07 · 21.25.529 · 유용함 1,102
+     <리뷰 내용>
+     └ 개발자 답변 (<날짜>)
+       <답변 내용>
+```
+
+- 평점 요약(평균, 별점별 분포) 다음에 리뷰를 보여 줍니다. 리뷰마다 작성자, 날짜, 작성 당시 앱 버전, "유용함" 수, 개발자 답변이 함께 나옵니다.
+- `-s`: `relevant`(관련성순, 기본)는 웹의 Play 스토어 상세 페이지에 보이는 리뷰 순서와 같고, `newest`는 최신순입니다.
+- `-r`: 그 별점의 리뷰만 받습니다.
+- 페이지를 넘기며 `-n`개까지 모읍니다 (요청 한 번에 100개씩).
 
 ### cert
 
@@ -169,7 +199,7 @@ playstore/
   device.py          기기 프로필(.properties) → User-Agent, checkin 요청, 기기 구성
   checkin.py         가상 기기 등록 → gsfId
   session.py         Play 토큰 → 기기 구성 업로드 → 약관(toc)
-  api.py             fdfe API: details, search, purchase, delivery
+  api.py             fdfe API: details, search, reviews, purchase, delivery
   download.py        delivery 응답 → 파일 목록, 다운로드와 검증
   apksig.py          APK 서명 블록(v2/v3/v3.1) 파서 (로컬 파일 / HTTP Range)
   store.py           계정·기기·세션 저장
@@ -198,6 +228,7 @@ protoc -I. --python_out=. playstore/googleplay.proto
 - **delivery 해시:** delivery 응답의 파일 `sha1`/`sha256`도 base64url(패딩 없음)입니다.
 - **없는 버전:** Play에 없는 versionCode로 delivery를 요청하면 오류 없이 `downloadUrl`만 빈 값으로 옵니다.
 - **검색 User-Agent:** 최신 Play User-Agent로 `search`를 보내면 결과 묶음이 빈 채로 와서, 검색만 구버전 User-Agent로 보냅니다. 결과는 묶음의 다음 결과(`getCluster?…`)와 다음 묶음(`searchList?…`) 두 경로로 이어집니다.
+- **리뷰:** `rev`의 `sort`는 `2`가 관련성순, `0`이 최신순입니다. 없는 앱에도 오류 없이 빈 목록(HTTP 200)이 오고, 다음 페이지 경로(`ptkn`)에 정렬과 별점 필터가 이어집니다. 리뷰의 "유용함" 수는 gpapi 정의에 없는 필드 38입니다.
 - **권한 목록:** 매니페스트가 아니라 기기 SDK에 맞게 가공된 목록이 옵니다. `maxSdkVersion`으로 빠지는 권한이 있고, 암묵적 권한은 더해집니다.
 - **다운로드 CDN:** 구글 CDN(`*.gvt1.com`)은 끝 기준 Range(`bytes=-N`)를 416으로 거절합니다. 시작과 끝을 모두 지정해야 합니다.
 - **인증 요청 TLS:** `/auth`는 TLS ALPN을 보내거나 세션 티켓을 끄면 403 `BadAuthentication`을 줍니다 (gpsoauth와 같은 조정이 필요).

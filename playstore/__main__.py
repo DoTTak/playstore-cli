@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import requests
 
 from . import apksig, auth, browser, checkin, download, session, store
-from .api import NotDownloadable, PlayApi, PlayApiError, certificate_hashes
+from .api import REVIEW_SORT, NotDownloadable, PlayApi, PlayApiError, certificate_hashes
 from .device import DEFAULT_PROFILE, Profile
 
 
@@ -142,6 +143,53 @@ def cmd_search(args) -> int:
     return 0
 
 
+def _date(msec: int) -> str:
+    return time.strftime("%Y-%m-%d", time.localtime(msec / 1000))
+
+
+def _indent(text: str, prefix: str) -> str:
+    return "\n".join(prefix + line for line in text.splitlines())
+
+
+def cmd_reviews(args) -> int:
+    # rev returns an empty list even for an unknown app, so check the app exists with details,
+    # which also gives the rating summary
+    doc, reviews = _with_api(lambda api: (
+        api.details(args.package),
+        api.reviews(args.package, args.limit, sort=args.sort, rating=args.rating)))
+    if not doc.docid:
+        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        return 1
+    r = doc.aggregateRating
+    if r.ratingsCount:
+        print(f"{doc.title} — 평점 {r.starRating:.1f} ({r.ratingsCount:,}명)")
+        for star, count in [(5, r.fiveStarRatings), (4, r.fourStarRatings), (3, r.threeStarRatings),
+                            (2, r.twoStarRatings), (1, r.oneStarRatings)]:
+            print(f"  ★{star} {count * 100 / r.ratingsCount:3.0f}%  {count:,}")
+    else:
+        print(f"{doc.title} — 평점 없음")
+
+    label = {"relevant": "관련성순", "newest": "최신순"}[args.sort]
+    if args.rating:
+        label += f" · 별점 {args.rating}"
+    if not reviews:
+        print(f"리뷰가 없습니다 ({label})", file=sys.stderr)
+        return 1
+    print(f"\n리뷰 {len(reviews)}개 ({label})")
+    for i, rv in enumerate(reviews, 1):
+        meta = [rv.userProfile.name, _date(rv.timestampMsec), rv.documentVersion]
+        if rv.thumbsUpCount:
+            meta.append(f"유용함 {rv.thumbsUpCount:,}")
+        print(f"\n{i:>3}. {'★' * rv.starRating}{'☆' * (5 - rv.starRating)}  {' · '.join(m for m in meta if m)}")
+        if rv.title:
+            print(f"     [{rv.title}]")
+        print(_indent(rv.comment, "     "))
+        if rv.replyText:
+            print(f"     └ 개발자 답변 ({_date(rv.replyTimestampMsec)})")
+            print(_indent(rv.replyText, "       "))
+    return 0
+
+
 def cmd_cert(args) -> int:
     doc = _with_api(lambda api: api.details(args.package))
     if not doc.docid:
@@ -245,6 +293,15 @@ def main(argv=None) -> int:
     sr.add_argument("query", help="검색어 (예: youtube)")
     sr.add_argument("-n", "--limit", type=int, default=20, help="최대 결과 수 (기본 20)")
     sr.set_defaults(func=cmd_search)
+
+    rv = sub.add_parser("reviews", help="앱 리뷰 조회 (평점 요약 + 리뷰·개발자 답변)")
+    rv.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    rv.add_argument("-n", "--limit", type=int, default=20, help="최대 리뷰 수 (기본 20)")
+    rv.add_argument("-s", "--sort", choices=list(REVIEW_SORT), default="relevant",
+                    help="relevant: 관련성순 (기본, Play 기본 정렬), newest: 최신순")
+    rv.add_argument("-r", "--rating", type=int, choices=range(1, 6), metavar="1-5",
+                    help="이 별점의 리뷰만")
+    rv.set_defaults(func=cmd_reviews)
 
     ce = sub.add_parser("cert", help="정식 서명 인증서 해시 (details 의 certificateSet)")
     ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")

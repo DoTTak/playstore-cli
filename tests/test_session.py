@@ -252,3 +252,52 @@ def test_search_stops_on_page_without_new_apps(play_server):
 def test_search_no_results(play_server):
     serve_search(play_server, stream())
     assert PlayApi(DEVICE, SESSION).search("zzzz") == []
+
+
+def review(cid: str, stars: int = 5) -> pb.Review:
+    return pb.Review(commentId=cid, starRating=stars, comment=f"{cid} 좋아요")
+
+
+def reviews_page(*reviews: pb.Review, next_page: str = "") -> bytes:
+    return wrap(reviewResponse=pb.ReviewResponse(
+        getResponse=pb.GetReviewsResponse(review=reviews), nextPageUrl=next_page))
+
+
+def test_reviews_follows_next_page(play_server):
+    play_server.respond(reviews_page(review("r1"), review("r2"),
+                                     next_page="rev?doc=com.google.android.youtube&n=20&ptkn=P1&sort=2"),
+                        path="/fdfe/rev")
+    play_server.respond(reviews_page(review("r3")), path="/fdfe/rev")  # last page: no nextPageUrl
+
+    got = PlayApi(DEVICE, SESSION).reviews("com.google.android.youtube")
+
+    assert [r.commentId for r in got] == ["r1", "r2", "r3"]
+    first, second = play_server.by_path("/fdfe/rev")
+    assert parse_qs(first["query"]) == {"doc": ["com.google.android.youtube"], "n": ["20"], "sort": ["2"]}
+    assert parse_qs(second["query"])["ptkn"] == ["P1"]
+
+
+def test_reviews_newest_with_rating(play_server):
+    play_server.respond(reviews_page(review("r1", stars=1)), path="/fdfe/rev")
+
+    PlayApi(DEVICE, SESSION).reviews("com.google.android.youtube", 300, sort="newest", rating=1)
+
+    (req,) = play_server.requests
+    assert parse_qs(req["query"]) == {"doc": ["com.google.android.youtube"], "n": [str(api.REVIEW_PAGE_SIZE)],
+                                      "sort": ["0"], "rating": ["1"]}
+
+
+def test_reviews_limit_skips_next_page(play_server):
+    play_server.respond(reviews_page(review("r1"), review("r2"), review("r3"), next_page="rev?ptkn=P1"),
+                        path="/fdfe/rev")
+
+    assert [r.commentId for r in PlayApi(DEVICE, SESSION).reviews("x", limit=2)] == ["r1", "r2"]
+    assert len(play_server.requests) == 1
+
+
+def test_reviews_unknown_app_is_empty(play_server):
+    # unknown app: the real server returns HTTP 200 with an empty getResponse
+    play_server.respond(reviews_page(next_page="rev?ptkn=P1"), path="/fdfe/rev")
+
+    assert PlayApi(DEVICE, SESSION).reviews("com.example.nope") == []
+    assert len(play_server.requests) == 1

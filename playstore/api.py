@@ -24,6 +24,13 @@ ENCODED_TARGETS = "CAESN/qigQYC2AMBFfUbyA7SM5Ij/CvfBoIDgxXrBPsDlQUdMfOLAfoFrwEHg
 # Play User-Agent the clusters come back filled.
 LEGACY_USER_AGENT = "Android-Finsky/29.2.15-21 [0] [PR] 426536134 (api=3,versionCode=82921510,sdk=25)"
 
+# sort values for rev (checked against real responses). Relevance order matches the reviews shown on
+# the web details page. 1 sorts by highest rating, and 3 and 4 return the same as 2, so they are left out.
+REVIEW_SORT = {"relevant": "2", "newest": "0"}
+# Reviews per rev request. n=1000 also comes back in one response (about 500 KB), but paging keeps
+# each response small
+REVIEW_PAGE_SIZE = 100
+
 
 class PlayApiError(Exception):
     def __init__(self, status: int, message: str):
@@ -165,6 +172,25 @@ class PlayApi:
                     queued.add(n)
                     queue.append((n, None))
         return list(found.values())[:limit]
+
+    def reviews(self, package: str, limit: int = 20, *, sort: str = "relevant",
+                rating: int = 0) -> list[pb.Review]:
+        """App reviews. Follows nextPageUrl and collects up to limit reviews.
+
+        sort is a REVIEW_SORT key; rating (1-5) returns only reviews with that many stars.
+        The next page path carries sort and rating over. An unknown app gives an empty list, not an error.
+        """
+        params = {"doc": package, "n": str(min(limit, REVIEW_PAGE_SIZE)), "sort": REVIEW_SORT[sort]}
+        if rating:
+            params["rating"] = str(rating)
+        path, found = "rev", []
+        while path and len(found) < limit:
+            page = self.request("GET", path, params=params).payload.reviewResponse
+            if not page.getResponse.review:
+                break
+            found += page.getResponse.review
+            path, params = page.nextPageUrl, None
+        return found[:limit]
 
     def purchase(self, package: str, version_code: int) -> str:
         """Add ("acquire") a free app to the account library. Pass any returned downloadToken to delivery."""
