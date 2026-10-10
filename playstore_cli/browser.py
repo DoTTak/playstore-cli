@@ -74,8 +74,11 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 15) -> str:
-    """Wait until DevTools is up and return the WebSocket URL of the first page tab."""
+def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 30) -> str:
+    """Wait until DevTools is up and return the WebSocket URL of the first page tab.
+
+    A first start with a fresh profile can take over 15 seconds on a slow machine (seen on CI runners).
+    """
     http = requests.Session()
     http.trust_env = False  # bypass the system proxy (Burp, etc.)
     deadline = time.monotonic() + timeout
