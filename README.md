@@ -1,19 +1,64 @@
-# playstore-cli
+<h1 align="center">playstore-cli</h1>
 
-An unofficial Google Play Store client, for research and learning.
+<p align="center">
+  <strong>An unofficial Google Play Store client for the command line.</strong><br>
+  Search apps, read reviews and top charts, check official signing certificates, and download APKs.
+</p>
 
-It calls the internal API (fdfe) that the Play Store app uses, so you can:
+<p align="center">
+  <a href="https://pypi.org/project/playstore-cli/"><img alt="PyPI" src="https://img.shields.io/pypi/v/playstore-cli"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-blue">
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-green"></a>
+</p>
 
-- sign in to a Google account and register a virtual device
-- search apps, and look up app details and permissions
-- read the rating summary and reviews (with developer replies)
-- browse top charts by category (top free, top paid, top grossing, trending)
-- look up the official signing certificate hashes (SHA-1, SHA-256), and compare them with the APK's signing block
-- download APKs (base and split APKs, OBBs, older versions)
+> [!WARNING]
+> This is a research and learning project that talks to Google Play's unofficial internal API. It may go against
+> Google's terms of service, and the account you use may get restricted, so use a separate account.
+> See [Caveats](#caveats).
+
+```console
+$ playstore-cli search youtube -n 2
+  1. YouTube — Google LLC
+     com.google.android.youtube · 21.32.4 · 10,000,000,000+ downloads · Free
+  2. LINE: Calls & Messages — LINE (LY Corporation)
+     jp.naver.line.android · 26.15.1 · 1,000,000,000+ downloads · Free
+
+$ playstore-cli download com.google.android.youtube
+YouTube 21.32.4 (1561190505) — 4 files, 137.3 MB → downloads/com.google.android.youtube-1561190505
+  [1/4] base.apk (60.9 MB)  OK
+  [2/4] split_config.arm64_v8a.apk (73.3 MB)  OK
+  [3/4] split_config.en.apk (0.3 MB)  OK
+  [4/4] split_config.xxhdpi.apk (2.7 MB)  OK
+Install: adb install-multiple downloads/com.google.android.youtube-1561190505/*.apk
+```
+
+## Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Commands](#commands)
+- [Storage](#storage)
+- [Play API behavior confirmed against real responses](#play-api-behavior-confirmed-against-real-responses)
+- [Development](#development)
+- [Caveats](#caveats)
+- [References](#references)
+- [License](#license)
+
+## Features
+
+- **Sign in with your Google account.** A browser window handles the sign-in, 2-step verification included, and the long-lived token is stored locally.
+- **Search, details and permissions.** Find package names and see versions, install counts and the permissions Play reports for your device.
+- **Ratings and reviews.** The rating summary with its per-star distribution, plus reviews with developer replies, sorted by relevance or date.
+- **Top charts.** Top free, top paid, top grossing and trending, for any category.
+- **Official signing certificates.** The SHA-1 and SHA-256 Play reports for an app, optionally checked against the signing block of the APK it actually serves, by fetching only the end of the file.
+- **APK downloads.** Base and split APKs and OBBs, verified against Play's hashes, ready for `adb install-multiple`. Older versions too, while Play still has them.
+- **Your own device profiles.** Generate a profile from any Android phone over adb, so Play serves the same apps and builds as it would to that phone.
 
 ## Installation
 
-Requires Python 3.12+. Install it as a command-line tool with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
+Requires Python 3.10+. Install it as a command-line tool with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
 
 ```bash
 uv tool install playstore-cli
@@ -31,6 +76,7 @@ You also need:
 
 - A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`
 - A Google account. A separate account for research is recommended (see [Caveats](#caveats))
+- [adb](https://developer.android.com/tools/adb), only to generate your own device profiles with `profile`
 
 ## Quick start
 
@@ -46,6 +92,21 @@ playstore-cli download com.google.android.youtube  # download the APKs
 ```
 
 `login` and `checkin` are needed only once. A Play session is created whenever needed, and when the Play token expires (401) it is rebuilt from the saved AAS token and the request is retried.
+
+## How it works
+
+```mermaid
+flowchart LR
+    login["login<br/>browser sign-in"] -->|AAS token| checkin["checkin<br/>register a virtual device"]
+    profile["device profile<br/>bundled or from adb"] --> checkin
+    checkin -->|gsfId| session["Play session<br/>Play token, device config, terms"]
+    session --> read["search · details · reviews<br/>top · categories"]
+    session --> fetch["cert · download"]
+```
+
+1. `login` gets a one-time `oauth_token` from Google's "Add account" page and exchanges it for an AAS token at `android.clients.google.com/auth`.
+2. `checkin` registers a virtual device, described by a device profile, and gets its gsfId.
+3. A Play session (Play token, uploaded device configuration, accepted terms of service) is built from those two, then every command calls the Play Store's internal API (`android.clients.google.com/fdfe/…`) as that device.
 
 ## Commands
 
@@ -270,7 +331,37 @@ Install: adb install-multiple downloads/com.google.android.youtube-1561190505/*.
 
 Set the `PLAYSTORE_HOME` environment variable to use another directory than `~/.config/playstore-cli`.
 
-## Layout
+## Play API behavior confirmed against real responses
+
+Things that are missing from, or differ from, the reference implementations (gpapi, Aurora):
+
+- **Signing hashes:** field 22 of `AppDetails` in the details response (`certificateSet`) holds each certificate's SHA-1 and SHA-256, base64url-encoded without padding. Paid apps and apps incompatible with the device have it too. It lists the signers of every variant Play serves (release-keys and test-keys devices get differently signed APKs of some apps), not only those of the APK the device gets (see [cert](#cert)).
+- **delivery hashes:** the file `sha1`/`sha256` in a delivery response are base64url without padding too.
+- **Missing versions:** asking delivery for a versionCode Play doesn't have returns no error, only an empty `downloadUrl`.
+- **Search User-Agent:** sending `search` with the current Play User-Agent returns empty result clusters, so search uses a legacy User-Agent. Results continue along two paths: a cluster's next results (`getCluster?…`) and the next clusters (`searchList?…`).
+- **Reviews:** `rev` takes `sort` `2` for most relevant and `0` for newest. An unknown app returns an empty list (HTTP 200) instead of an error, and the next-page path (`ptkn`) carries the sort and star filter over. The "found helpful" count of a review is field 38, which gpapi doesn't define.
+- **Top charts:** `listTopChartItems?c=3&scat=<category ID>&stcid=<chart>`, where `stcid` is `apps_topselling_free`, `apps_topselling_paid`, `apps_topgrossing` or `apps_movers_shakers`. A `scat` that is not a category ID (such as `apps`) returns an empty list. The next 7 ranks continue through the cluster's `getCluster?…`. With the legacy User-Agent the same apps come back but some ranks are reordered (ranks 23-37 of top free in Finance, for example), so top charts use the device profile's User-Agent.
+- **Category list:** sending `categoriesList` with the current Play User-Agent returns a newer stream format without `listResponse`, so it uses the legacy User-Agent like search. The category ID is in each document's category home path (`homeV2?cat=FINANCE&c=3`).
+- **Permissions:** the list is adapted to the device SDK rather than copied from the manifest: some permissions are dropped because of `maxSdkVersion`, and implied permissions are added.
+- **Download CDN:** Google's CDN (`*.gvt1.com`) rejects suffix ranges (`bytes=-N`) with 416. Both start and end have to be given.
+- **Auth TLS:** `/auth` returns 403 `BadAuthentication` if TLS ALPN is sent or session tickets are disabled (the same tweaks as gpsoauth are needed).
+
+## Development
+
+```bash
+uv sync                      # create .venv with the project and the dev dependencies
+uv run playstore-cli --help  # run the CLI from the working tree
+uv run pytest
+uv build                     # build the sdist and wheel into dist/
+```
+
+After changing the proto, regenerate it from the repository root (protoc 28.x):
+
+```bash
+protoc -I. --python_out=. playstore_cli/googleplay.proto
+```
+
+### Layout
 
 ```
 playstore_cli/
@@ -290,35 +381,7 @@ playstore_cli/
 tests/               tests against local HTTP stand-ins (no requests to Google)
 ```
 
-## Development
-
-```bash
-uv sync                      # create .venv with the project and the dev dependencies
-uv run playstore-cli --help  # run the CLI from the working tree
-uv run pytest
-uv build                     # build the sdist and wheel into dist/
-```
-
-After changing the proto, regenerate it from the repository root (protoc 28.x):
-
-```bash
-protoc -I. --python_out=. playstore_cli/googleplay.proto
-```
-
-## Play API behavior confirmed against real responses
-
-Things that are missing from, or differ from, the reference implementations (gpapi, Aurora):
-
-- **Signing hashes:** field 22 of `AppDetails` in the details response (`certificateSet`) holds each certificate's SHA-1 and SHA-256, base64url-encoded without padding. Paid apps and apps incompatible with the device have it too. It lists the signers of every variant Play serves (release-keys and test-keys devices get differently signed APKs of some apps), not only those of the APK the device gets (see [cert](#cert)).
-- **delivery hashes:** the file `sha1`/`sha256` in a delivery response are base64url without padding too.
-- **Missing versions:** asking delivery for a versionCode Play doesn't have returns no error, only an empty `downloadUrl`.
-- **Search User-Agent:** sending `search` with the current Play User-Agent returns empty result clusters, so search uses a legacy User-Agent. Results continue along two paths: a cluster's next results (`getCluster?…`) and the next clusters (`searchList?…`).
-- **Reviews:** `rev` takes `sort` `2` for most relevant and `0` for newest. An unknown app returns an empty list (HTTP 200) instead of an error, and the next-page path (`ptkn`) carries the sort and star filter over. The "found helpful" count of a review is field 38, which gpapi doesn't define.
-- **Top charts:** `listTopChartItems?c=3&scat=<category ID>&stcid=<chart>`, where `stcid` is `apps_topselling_free`, `apps_topselling_paid`, `apps_topgrossing` or `apps_movers_shakers`. A `scat` that is not a category ID (such as `apps`) returns an empty list. The next 7 ranks continue through the cluster's `getCluster?…`. With the legacy User-Agent the same apps come back but some ranks are reordered (ranks 23-37 of top free in Finance, for example), so top charts use the device profile's User-Agent.
-- **Category list:** sending `categoriesList` with the current Play User-Agent returns a newer stream format without `listResponse`, so it uses the legacy User-Agent like search. The category ID is in each document's category home path (`homeV2?cat=FINANCE&c=3`).
-- **Permissions:** the list is adapted to the device SDK rather than copied from the manifest: some permissions are dropped because of `maxSdkVersion`, and implied permissions are added.
-- **Download CDN:** Google's CDN (`*.gvt1.com`) rejects suffix ranges (`bytes=-N`) with 416. Both start and end have to be given.
-- **Auth TLS:** `/auth` returns 403 `BadAuthentication` if TLS ALPN is sent or session tickets are disabled (the same tweaks as gpsoauth are needed).
+Issues and pull requests are welcome.
 
 ## Caveats
 
@@ -336,3 +399,5 @@ Things that are missing from, or differ from, the reference implementations (gpa
 ## License
 
 [Apache-2.0](LICENSE)
+
+This project is not affiliated with or endorsed by Google. Google Play and Android are trademarks of Google LLC.
