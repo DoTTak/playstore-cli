@@ -1,4 +1,6 @@
-<h1 align="center">playstore-cli</h1>
+<h1 align="center">
+  <img alt="playstore-cli" src="https://raw.githubusercontent.com/DoTTak/playstore-cli/main/.github/banner.jpg">
+</h1>
 
 <p align="center">
   <strong>An unofficial Google Play Store client for the command line.</strong><br>
