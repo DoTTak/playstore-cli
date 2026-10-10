@@ -147,6 +147,28 @@ def test_app_delivery_incompatible(play_server):
         PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
 
 
+@pytest.mark.parametrize("latest", [1561301413, 0])  # 0: 최신 버전이 기기 비호환이어도 지정한 버전은 시도
+def test_app_delivery_version_code(play_server, latest):
+    serve_details(play_server, version_code=latest)
+    play_server.respond(delivery("https://play.example/base.apk"), path="/fdfe/delivery")
+
+    _, data = PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube", 1550000000)
+
+    assert data.downloadUrl == "https://play.example/base.apk"
+    (req,) = play_server.by_path("/fdfe/delivery")
+    assert parse_qs(req["query"])["vc"] == ["1550000000"]
+
+
+def test_app_delivery_missing_version(play_server):
+    # Play 에 없는 버전: 실제 서버는 오류 없이 downloadUrl 을 비워서 준다
+    serve_details(play_server)
+    play_server.respond(delivery(""), path="/fdfe/delivery")
+    play_server.respond(wrap(buyResponse=pb.BuyResponse(downloadToken="dtok-1")), path="/fdfe/purchase")
+
+    with pytest.raises(api.NotDownloadable, match="versionCode 1 의 다운로드 URL 이 없음"):
+        PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube", 1)
+
+
 def test_certificate_hashes_from_details():
     # YouTube 21.40.161 details 실제 응답의 certificateSet 값 (base64url) — 인증서 2개
     doc = pb.DocV2(details=pb.DocumentDetails(appDetails=pb.AppDetails(certificateSet=[

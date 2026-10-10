@@ -175,12 +175,15 @@ def _progress_line(prefix: str):
 
 
 def cmd_download(args) -> int:
-    doc, data = _with_api(lambda api: api.app_delivery(args.package))
+    doc, data = _with_api(lambda api: api.app_delivery(args.package, args.version_code))
     a = doc.details.appDetails
-    out = Path(args.out) / f"{args.package}-{a.versionCode}"
+    vc = args.version_code or a.versionCode
+    # versionString 은 details(최신 버전)에만 있다
+    version = (f"{a.versionString} ({vc})" if vc == a.versionCode
+               else f"versionCode {vc} (최신 {a.versionString} / {a.versionCode})")
+    out = Path(args.out) / f"{args.package}-{vc}"
     files = download.play_files(args.package, data)
-    print(f"{doc.title} {a.versionString} ({a.versionCode}) — 파일 {len(files)}개, "
-          f"{_mb(sum(f.size for f in files))} → {out}")
+    print(f"{doc.title} {version} — 파일 {len(files)}개, {_mb(sum(f.size for f in files))} → {out}")
 
     downloader = download.Downloader(data)
     for i, f in enumerate(files, 1):
@@ -228,6 +231,8 @@ def main(argv=None) -> int:
 
     dl = sub.add_parser("download", help="APK 다운로드 (base + split + OBB, 무료 앱만)")
     dl.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    dl.add_argument("-v", "--version-code", type=int,
+                    help="받을 버전의 versionCode (Play 에 남아 있는 과거 버전). 생략하면 최신")
     dl.add_argument("-o", "--out", default="downloads",
                     help="저장 위치. 그 아래 <패키지>-<versionCode>/ 에 받는다 (기본 downloads)")
     dl.set_defaults(func=cmd_download)

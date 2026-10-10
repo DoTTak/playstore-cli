@@ -125,13 +125,18 @@ class PlayApi:
             params["dtok"] = download_token
         return self.request("GET", "delivery", params=params).payload.deliveryResponse.appDeliveryData
 
-    def app_delivery(self, package: str) -> tuple[pb.DocV2, pb.AndroidAppDeliveryData]:
-        """details → delivery (보관함에 없으면 purchase 후 재시도). 다운로드 URL 이 든 데이터를 반환."""
+    def app_delivery(self, package: str,
+                     version_code: int | None = None) -> tuple[pb.DocV2, pb.AndroidAppDeliveryData]:
+        """details → delivery (보관함에 없으면 purchase 후 재시도). 다운로드 URL 이 든 데이터를 반환.
+
+        version_code 를 주면 그 버전을, 안 주면 details 의 최신 버전을 받는다.
+        Play 에 없는 버전이면 delivery 가 오류 없이 다운로드 URL 만 비워서 준다.
+        """
         doc = self.details(package)
         paid = next((o for o in doc.offer if o.offerType == 1 and o.micros > 0), None)
         if paid:
             raise NotDownloadable(f"유료 앱 ({paid.formattedAmount})")
-        vc = doc.details.appDetails.versionCode
+        vc = version_code or doc.details.appDetails.versionCode
         if not vc:
             raise NotDownloadable("이 기기 프로필에 호환되는 버전이 없음 (versionCode=0)")
 
@@ -142,5 +147,6 @@ class PlayApi:
         if not (data and data.downloadUrl):
             data = self.delivery(package, vc, self.purchase(package, vc))
         if not data.downloadUrl:
-            raise NotDownloadable("delivery 응답에 다운로드 URL 이 없음")
+            raise NotDownloadable(f"versionCode {vc} 의 다운로드 URL 이 없음 (Play 에 없는 버전이거나 기기 비호환)"
+                                  if version_code else "delivery 응답에 다운로드 URL 이 없음")
         return doc, data
