@@ -77,7 +77,7 @@ def test_fetch_hash_mismatch_leaves_nothing(fake_server, tmp_path):
     fake_server.respond(b"y" * len(BASE), path="/base")
     data = delivery(fake_server.url)
 
-    with pytest.raises(DownloadError, match="base.apk: sha256 불일치"):
+    with pytest.raises(DownloadError, match="base.apk: sha256 mismatch"):
         Downloader(data).fetch(download.play_files("com.example", data)[0], tmp_path)
     assert not list(tmp_path.iterdir())
 
@@ -86,7 +86,7 @@ def test_fetch_size_mismatch(fake_server, tmp_path):
     fake_server.respond(BASE[:-1], path="/base")
     data = delivery(fake_server.url)
 
-    with pytest.raises(DownloadError, match="크기 불일치"):
+    with pytest.raises(DownloadError, match="size mismatch"):
         Downloader(data).fetch(download.play_files("com.example", data)[0], tmp_path)
 
 

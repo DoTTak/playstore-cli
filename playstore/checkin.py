@@ -34,7 +34,7 @@ def checkin(profile: Profile, email: str, ac2dm_token: str, *,
 
     first = _post(req, headers)
     if not first.androidId:
-        raise CheckinError("응답에 androidId 가 없음")
+        raise CheckinError("no androidId in the response")
 
     req.id = first.androidId
     req.securityToken = first.securityToken

@@ -1,7 +1,7 @@
 [project]
-name = "dottakstore"
+name = "playstore-cli"
 version = "0.1.0"
-description = "Google Play 스토어 비공식 클라이언트 (연구용)"
+description = "Unofficial Google Play Store client (for research and learning)"
 requires-python = ">=3.12"
 dependencies = [
     "protobuf>=5.28.3,<6",

@@ -116,7 +116,7 @@ class PlayApi:
             message = wrapper and wrapper.commands.displayErrorMessage
             raise PlayApiError(resp.status_code, message or resp.text[:200])
         if wrapper is None:
-            raise PlayApiError(resp.status_code, f"protobuf 가 아닌 응답: {resp.content[:80]!r}")
+            raise PlayApiError(resp.status_code, f"not a protobuf response: {resp.content[:80]!r}")
         return wrapper
 
     def upload_device_config(self) -> str:
@@ -257,10 +257,10 @@ class PlayApi:
         doc = self.details(package)
         paid = next((o for o in doc.offer if o.offerType == 1 and o.micros > 0), None)
         if paid:
-            raise NotDownloadable(f"유료 앱 ({paid.formattedAmount})")
+            raise NotDownloadable(f"paid app ({paid.formattedAmount})")
         vc = version_code or doc.details.appDetails.versionCode
         if not vc:
-            raise NotDownloadable("이 기기 프로필에 호환되는 버전이 없음 (versionCode=0)")
+            raise NotDownloadable("no version compatible with this device profile (versionCode=0)")
 
         try:
             data = self.delivery(package, vc)
@@ -269,6 +269,6 @@ class PlayApi:
         if not (data and data.downloadUrl):
             data = self.delivery(package, vc, self.purchase(package, vc))
         if not data.downloadUrl:
-            raise NotDownloadable(f"versionCode {vc} 의 다운로드 URL 이 없음 (Play 에 없는 버전이거나 기기 비호환)"
-                                  if version_code else "delivery 응답에 다운로드 URL 이 없음")
+            raise NotDownloadable(f"no download URL for versionCode {vc} (Play doesn't have that version, or it is incompatible with the device)"
+                                  if version_code else "no download URL in the delivery response")
         return doc, data

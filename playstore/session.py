@@ -25,17 +25,17 @@ def build(account: dict, device: dict, log=_no_log) -> dict:
     token = auth.exchange_aas_token(account["email"], account["aasToken"], PLAY_SERVICE,
                                     gsf_id=device["gsfId"], app="com.android.vending",
                                     header_app="com.google.android.gms")
-    log("Play 토큰 OK")
+    log("Play token OK")
     session = {"gsfId": device["gsfId"], "authToken": token}
     api = PlayApi(device, session)
 
     session["deviceConfigToken"] = api.upload_device_config()
-    log(f"기기 구성 업로드 OK (deviceConfigToken {'있음' if session['deviceConfigToken'] else '없음'})")
+    log(f"device config upload OK (deviceConfigToken {'present' if session['deviceConfigToken'] else 'missing'})")
 
     toc = api.toc()
     if toc.tosContent and toc.tosToken:
         api.accept_tos(toc.tosToken)
-        log("약관 동의 OK")
+        log("terms of service accepted")
     session["dfeCookie"] = toc.cookie
-    log(f"toc OK (dfeCookie {'있음' if toc.cookie else '없음'})")
+    log(f"toc OK (dfeCookie {'present' if toc.cookie else 'missing'})")
     return session

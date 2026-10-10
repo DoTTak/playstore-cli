@@ -40,7 +40,7 @@ class Profile:
     def load(cls, name: str = DEFAULT_PROFILE) -> Profile:
         path = PROFILES_DIR / f"{name}.properties"
         if not path.exists():
-            raise ValueError(f"프로필 없음: {name} (있는 것: {', '.join(available_profiles())})")
+            raise ValueError(f"no such profile: {name} (available: {', '.join(available_profiles())})")
         return cls(name, parse_properties(path.read_text()))
 
     def _list(self, key: str) -> list[str]:

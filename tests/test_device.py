@@ -4,7 +4,7 @@ from playstore.device import Profile, available_profiles, parse_properties
 
 
 def test_parse_properties():
-    text = "# 주석\n! 주석\n\nBuild.FINGERPRINT=google/tegu/tegu\\:15/BD4A\\:user\nA = b=c\n"
+    text = "# comment\n! comment\n\nBuild.FINGERPRINT=google/tegu/tegu\\:15/BD4A\\:user\nA = b=c\n"
     assert parse_properties(text) == {"Build.FINGERPRINT": "google/tegu/tegu:15/BD4A:user", "A": "b=c"}
 
 

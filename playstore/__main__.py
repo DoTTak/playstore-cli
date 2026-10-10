@@ -19,25 +19,25 @@ class _Missing(Exception):
 
 
 def _mask(token: str) -> str:
-    return f"{token[:12]}… ({len(token)}자)"
+    return f"{token[:12]}… ({len(token)} chars)"
 
 
 def _account() -> dict:
     account = store.load_account()
     if not account:
-        raise _Missing("저장된 계정이 없습니다. 먼저 login 을 실행하세요.")
+        raise _Missing("No saved account. Run login first.")
     return account
 
 
 def _device() -> dict:
     device = store.load_device()
     if not device:
-        raise _Missing("등록된 기기가 없습니다. 먼저 checkin 을 실행하세요.")
+        raise _Missing("No registered device. Run checkin first.")
     return device
 
 
 def _new_session(account: dict, device: dict) -> dict:
-    print("Play 세션 생성 중...")
+    print("Creating a Play session...")
     sess = session.build(account, device, log=lambda m: print(f"  {m}"))
     store.save_session(sess)
     return sess
@@ -58,26 +58,27 @@ def _with_api(call):
     except PlayApiError as e:
         if e.status != 401:
             raise
-        print("Play 토큰이 만료돼 세션을 새로 만듭니다.")
+        print("The Play token expired; creating a new session.")
         return call(_play_api(fresh=True))
 
 
 def cmd_login(args) -> int:
     email, oauth_token = args.email, args.oauth_token
     if not oauth_token:
-        print("브라우저 창에서 구글 계정으로 로그인하세요 (2단계 인증 포함). 끝나면 창이 자동으로 닫힙니다.")
+        print("Sign in to your Google account in the browser window (including 2-step verification). "
+              "The window closes by itself when you are done.")
         scraped, oauth_token = browser.capture_oauth_token(store.chrome_profile_dir(),
                                                            timeout=args.timeout)
-        print(f"oauth_token 획득: {_mask(oauth_token)}")
+        print(f"Got oauth_token: {_mask(oauth_token)}")
         email = email or scraped
     if not email:
         # The oauth_token expires within minutes, so this must be entered right away
-        email = input("이메일을 자동으로 찾지 못했습니다. 계정 이메일: ").strip()
+        email = input("Could not detect the email address. Account email: ").strip()
 
     aas = auth.exchange_oauth_token(email, oauth_token)
     path = store.save_account(email, aas)
-    print(f"AAS 토큰 획득: {_mask(aas)} — {email}")
-    print(f"저장: {path}")
+    print(f"Got AAS token: {_mask(aas)} — {email}")
+    print(f"Saved: {path}")
     return 0
 
 
@@ -86,50 +87,50 @@ def cmd_checkin(args) -> int:
     existing = store.load_device()
     if existing and not args.force:
         # Every checkin registers a new device on the account, so reuse the existing one
-        print(f"이미 등록된 기기가 있습니다: gsfId={existing['gsfId']} ({existing['profile']})")
-        print("새로 등록하려면 --force")
+        print(f"A device is already registered: gsfId={existing['gsfId']} ({existing['profile']})")
+        print("Use --force to register a new one")
         return 0
 
     profile = Profile.load(args.profile)
-    print(f"ac2dm 토큰 교환 중... ({account['email']})")
+    print(f"Exchanging for an ac2dm token... ({account['email']})")
     ac2dm = auth.exchange_aas_token(account["email"], account["aasToken"], "ac2dm")
-    print(f"checkin 중... ({profile.props['UserReadableName']}, {args.locale}, {args.timezone})")
+    print(f"Checking in... ({profile.props['UserReadableName']}, {args.locale}, {args.timezone})")
     result = checkin.checkin(profile, account["email"], ac2dm,
                              locale=args.locale, timezone=args.timezone)
     path = store.save_device({"profile": profile.name, "locale": args.locale,
                               "timezone": args.timezone, **result})
     print(f"gsfId: {result['gsfId']}")
-    print(f"저장: {path}")
+    print(f"Saved: {path}")
     return 0
 
 
 def cmd_session(args) -> int:
     _new_session(_account(), _device())
-    print(f"저장: {store.session_path()}")
+    print(f"Saved: {store.session_path()}")
     return 0
 
 
 def cmd_details(args) -> int:
     doc = _with_api(lambda api: api.details(args.package))
     if not doc.docid:
-        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        print(f"No such app: {args.package}", file=sys.stderr)
         return 1
     a = doc.details.appDetails
-    print(f"제목     {doc.title}")
-    print(f"패키지   {a.packageName or doc.docid}")
-    print(f"버전     {a.versionString} ({a.versionCode})")
-    print(f"개발자   {a.developerName or doc.creator}")
-    print(f"업데이트 {a.uploadDate}")
-    print(f"설치수   {a.numDownloads}")  # the value already includes localized wording such as "… downloads"
-    print(f"크기     {a.installationSize / 1024 / 1024:.1f} MB")
-    print(f"권한     {len(a.permission)}개")
+    print(f"Title        {doc.title}")
+    print(f"Package      {a.packageName or doc.docid}")
+    print(f"Version      {a.versionString} ({a.versionCode})")
+    print(f"Developer    {a.developerName or doc.creator}")
+    print(f"Updated      {a.uploadDate}")
+    print(f"Installs     {a.numDownloads}")  # the value already includes localized wording such as "… downloads"
+    print(f"Size         {a.installationSize / 1024 / 1024:.1f} MB")
+    print(f"Permissions  {len(a.permission)}")
     for perm in a.permission:
         print(f"  {perm}")
     return 0
 
 
 def _price(doc) -> str:
-    return next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "무료")
+    return next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "Free")
 
 
 def _print_apps(apps) -> None:
@@ -143,28 +144,35 @@ def _print_apps(apps) -> None:
 def cmd_search(args) -> int:
     apps = _with_api(lambda api: api.search(args.query, args.limit))
     if not apps:
-        print(f"검색 결과가 없습니다: {args.query}", file=sys.stderr)
+        print(f"No search results: {args.query}", file=sys.stderr)
         return 1
     _print_apps(apps)
     return 0
 
 
 # Play app labels for the TOP_CHARTS keys
-_CHART_LABELS = {"free": "인기 무료", "paid": "인기 유료", "grossing": "최고 매출", "trending": "인기 급상승"}
+_CHART_LABELS = {"free": "Top free", "paid": "Top paid", "grossing": "Top grossing", "trending": "Trending"}
 # Top-level categories; categoriesList only returns their subcategories
-_TOP_CATEGORIES = {"APPLICATION": "앱", "GAME": "게임"}
+_TOP_CATEGORIES = {"APPLICATION": "Apps", "GAME": "Games"}
 
 
 def _category_id(api: PlayApi, name: str) -> str:
-    """Category ID from an ID in any case (finance) or a name as `categories` prints it (device locale)."""
-    if re.fullmatch(r"[A-Za-z_]+", name):
+    """Category ID from an ID (FINANCE, game_action) or a name as `categories` prints it, in any case.
+
+    Upper case or an underscore means an ID. Anything else is looked up by name first, because names in
+    an English locale look like IDs ("Puzzle" is GAME_PUZZLE); a single word that matches no name is
+    still taken as an ID ("finance" with a non-English locale).
+    """
+    if re.fullmatch(r"[A-Z_]+", name) or "_" in name:
         return name.upper()
     named = [*_TOP_CATEGORIES.items(), *(c for top in _TOP_CATEGORIES for c in api.categories(top))]
-    ids = [cid for cid, title in named if title == name]
+    ids = [cid for cid, title in named if title.casefold() == name.casefold()]
+    if not ids and re.fullmatch(r"[A-Za-z]+", name):
+        return name.upper()
     if not ids:
-        raise ValueError(f"카테고리를 찾지 못했습니다: {name} (목록은 categories 로 확인)")
+        raise ValueError(f"Category not found: {name} (see the list with categories)")
     if len(ids) > 1:
-        raise ValueError(f"이름이 같은 카테고리가 여러 개입니다: {name} → {', '.join(ids)} 중 ID 로 지정하세요")
+        raise ValueError(f"Several categories are named {name}: {', '.join(ids)}. Pass the ID instead")
     return ids[0]
 
 
@@ -176,9 +184,9 @@ def cmd_top(args) -> int:
     category, apps = _with_api(fetch)
     title = f"{category} {_CHART_LABELS[args.chart]}"
     if not apps:
-        print(f"순위가 없습니다: {title} (카테고리 ID 는 categories 로 확인)", file=sys.stderr)
+        print(f"No chart: {title} (check the category ID with categories)", file=sys.stderr)
         return 1
-    print(f"{title} 순위")
+    print(title)
     _print_apps(apps)
     return 0
 
@@ -207,34 +215,34 @@ def cmd_reviews(args) -> int:
         api.details(args.package),
         api.reviews(args.package, args.limit, sort=args.sort, rating=args.rating)))
     if not doc.docid:
-        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        print(f"No such app: {args.package}", file=sys.stderr)
         return 1
     r = doc.aggregateRating
     if r.ratingsCount:
-        print(f"{doc.title} — 평점 {r.starRating:.1f} ({r.ratingsCount:,}명)")
+        print(f"{doc.title} — rated {r.starRating:.1f} ({r.ratingsCount:,} ratings)")
         for star, count in [(5, r.fiveStarRatings), (4, r.fourStarRatings), (3, r.threeStarRatings),
                             (2, r.twoStarRatings), (1, r.oneStarRatings)]:
             print(f"  ★{star} {count * 100 / r.ratingsCount:3.0f}%  {count:,}")
     else:
-        print(f"{doc.title} — 평점 없음")
+        print(f"{doc.title} — no ratings")
 
-    label = {"relevant": "관련성순", "newest": "최신순"}[args.sort]
+    label = {"relevant": "most relevant", "newest": "newest"}[args.sort]
     if args.rating:
-        label += f" · 별점 {args.rating}"
+        label += f" · {args.rating} stars"
     if not reviews:
-        print(f"리뷰가 없습니다 ({label})", file=sys.stderr)
+        print(f"No reviews ({label})", file=sys.stderr)
         return 1
-    print(f"\n리뷰 {len(reviews)}개 ({label})")
+    print(f"\n{len(reviews)} review{'s' if len(reviews) != 1 else ''} ({label})")
     for i, rv in enumerate(reviews, 1):
         meta = [rv.userProfile.name, _date(rv.timestampMsec), rv.documentVersion]
         if rv.thumbsUpCount:
-            meta.append(f"유용함 {rv.thumbsUpCount:,}")
+            meta.append(f"{rv.thumbsUpCount:,} found helpful")
         print(f"\n{i:>3}. {'★' * rv.starRating}{'☆' * (5 - rv.starRating)}  {' · '.join(m for m in meta if m)}")
         if rv.title:
             print(f"     [{rv.title}]")
         print(_indent(rv.comment, "     "))
         if rv.replyText:
-            print(f"     └ 개발자 답변 ({_date(rv.replyTimestampMsec)})")
+            print(f"     └ Developer reply ({_date(rv.replyTimestampMsec)})")
             print(_indent(rv.replyText, "       "))
     return 0
 
@@ -242,13 +250,14 @@ def cmd_reviews(args) -> int:
 def cmd_cert(args) -> int:
     doc = _with_api(lambda api: api.details(args.package))
     if not doc.docid:
-        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        print(f"No such app: {args.package}", file=sys.stderr)
         return 1
     a = doc.details.appDetails
     print(f"{doc.title} {a.versionString} ({a.versionCode}) — {_price(doc)}")
 
     hashes = certificate_hashes(doc)
-    print("Play details 의 서명 인증서:" if hashes else "details 응답에 서명 정보(certificateSet)가 없습니다.")
+    print("Signing certificates from Play details:" if hashes
+          else "The details response has no signing information (certificateSet).")
     for sha1, sha256 in hashes:
         print(f"  SHA-1   {sha1}")
         print(f"  SHA-256 {sha256}")
@@ -260,13 +269,13 @@ def cmd_cert(args) -> int:
                                     {c.name: c.value for c in data.downloadAuthCookie},
                                     size=data.downloadSize)
     signers = apksig.read_signers(reader)
-    print(f"APK 서명 블록 (base.apk {data.downloadSize / 1024 / 1024:.1f} MB 중 "
-          f"Range {reader.requests}회 {reader.fetched / 1024:.1f} KB):")
+    print(f"APK signing block ({reader.fetched / 1024:.1f} KB of the {data.downloadSize / 1024 / 1024:.1f} MB "
+          f"base.apk in {reader.requests} Range requests):")
     for s in signers:
         print(f"  {s.scheme:<4} SHA-1   {s.sha1}")
         print(f"       SHA-256 {s.sha256}")
     same = {s.sha1 for s in signers} & {sha1 for sha1, _ in hashes}
-    print("→ details 와 일치" if same else "→ details 와 불일치!")
+    print("→ matches details" if same else "→ does not match details!")
     return 0 if same else 1
 
 
@@ -295,21 +304,21 @@ def cmd_download(args) -> int:
     vc = args.version_code or a.versionCode
     # versionString is only in details (the latest version)
     version = (f"{a.versionString} ({vc})" if vc == a.versionCode
-               else f"versionCode {vc} (최신 {a.versionString} / {a.versionCode})")
+               else f"versionCode {vc} (latest {a.versionString} / {a.versionCode})")
     out = Path(args.out) / f"{args.package}-{vc}"
     files = download.play_files(args.package, data)
-    print(f"{doc.title} {version} — 파일 {len(files)}개, {_mb(sum(f.size for f in files))} → {out}")
+    print(f"{doc.title} {version} — {len(files)} files, {_mb(sum(f.size for f in files))} → {out}")
 
     downloader = download.Downloader(data)
     for i, f in enumerate(files, 1):
         prefix = f"  [{i}/{len(files)}] {f.name} ({_mb(f.size)})"
         fetched = downloader.fetch(f, out, progress=_progress_line(prefix))
-        print(f"\r{prefix}  {'OK' if fetched else '이미 있음'}  ")
+        print(f"\r{prefix}  {'OK' if fetched else 'already there'}  ")
 
     apks = [f.name for f in files if f.name.endswith(".apk")]
-    print(f"설치: adb install-multiple {out}/*.apk" if len(apks) > 1 else f"설치: adb install {out}/base.apk")
+    print(f"Install: adb install-multiple {out}/*.apk" if len(apks) > 1 else f"Install: adb install {out}/base.apk")
     if len(apks) < len(files):
-        print(f"OBB 는 기기의 /sdcard/Android/obb/{args.package}/ 에 넣으세요.")
+        print(f"Put the OBB files in /sdcard/Android/obb/{args.package}/ on the device.")
     return 0
 
 
@@ -317,64 +326,64 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="playstore")
     sub = p.add_subparsers(dest="command", required=True)
 
-    login = sub.add_parser("login", help="구글 계정 로그인 → AAS 토큰 저장")
-    login.add_argument("--email", help="계정 이메일 (브라우저 로그인 시 자동 감지)")
+    login = sub.add_parser("login", help="sign in to a Google account → save an AAS token")
+    login.add_argument("--email", help="account email (detected automatically with the browser login)")
     login.add_argument("--oauth-token",
-                       help="EmbeddedSetup 의 oauth_token 쿠키 값(oauth2_4/...). 주면 브라우저를 띄우지 않음")
-    login.add_argument("--timeout", type=float, default=600, help="브라우저 로그인 대기 시간(초)")
+                       help="oauth_token cookie from EmbeddedSetup (oauth2_4/...); skips the browser")
+    login.add_argument("--timeout", type=float, default=600, help="seconds to wait for the browser login")
     login.set_defaults(func=cmd_login)
 
-    ci = sub.add_parser("checkin", help="가상 기기 등록 → gsfId 저장")
-    ci.add_argument("--profile", default=DEFAULT_PROFILE, help=f"기기 프로필 (기본 {DEFAULT_PROFILE})")
-    ci.add_argument("--locale", default="ko_KR")
-    ci.add_argument("--timezone", default="Asia/Seoul")
-    ci.add_argument("--force", action="store_true", help="등록된 기기가 있어도 새로 등록")
+    ci = sub.add_parser("checkin", help="register a virtual device → save its gsfId")
+    ci.add_argument("--profile", default=DEFAULT_PROFILE, help=f"device profile (default {DEFAULT_PROFILE})")
+    ci.add_argument("--locale", default="en_US", help="device locale; Play answers in its language (default en_US)")
+    ci.add_argument("--timezone", default="UTC", help="device time zone (default UTC)")
+    ci.add_argument("--force", action="store_true", help="register a new device even if one is already registered")
     ci.set_defaults(func=cmd_checkin)
 
-    se = sub.add_parser("session", help="Play 세션 생성 (Play 토큰·기기 구성 업로드·약관)")
+    se = sub.add_parser("session", help="create a Play session (Play token, device config upload, terms of service)")
     se.set_defaults(func=cmd_session)
 
-    de = sub.add_parser("details", help="앱 상세 정보 조회")
-    de.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    de = sub.add_parser("details", help="app details and permissions")
+    de.add_argument("package", help="package name (e.g. com.google.android.youtube)")
     de.set_defaults(func=cmd_details)
 
-    sr = sub.add_parser("search", help="앱 검색 → 패키지명 찾기")
-    sr.add_argument("query", help="검색어 (예: youtube)")
-    sr.add_argument("-n", "--limit", type=int, default=20, help="최대 결과 수 (기본 20)")
+    sr = sub.add_parser("search", help="search apps → find package names")
+    sr.add_argument("query", help="search query (e.g. youtube)")
+    sr.add_argument("-n", "--limit", type=int, default=20, help="maximum number of results (default 20)")
     sr.set_defaults(func=cmd_search)
 
-    rv = sub.add_parser("reviews", help="앱 리뷰 조회 (평점 요약 + 리뷰·개발자 답변)")
-    rv.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
-    rv.add_argument("-n", "--limit", type=int, default=20, help="최대 리뷰 수 (기본 20)")
+    rv = sub.add_parser("reviews", help="app reviews (rating summary, reviews and developer replies)")
+    rv.add_argument("package", help="package name (e.g. com.google.android.youtube)")
+    rv.add_argument("-n", "--limit", type=int, default=20, help="maximum number of reviews (default 20)")
     rv.add_argument("-s", "--sort", choices=list(REVIEW_SORT), default="relevant",
-                    help="relevant: 관련성순 (기본, Play 기본 정렬), newest: 최신순")
+                    help="relevant: most relevant (default, Play's own order), newest: newest first")
     rv.add_argument("-r", "--rating", type=int, choices=range(1, 6), metavar="1-5",
-                    help="이 별점의 리뷰만")
+                    help="only reviews with this many stars")
     rv.set_defaults(func=cmd_reviews)
 
-    tp = sub.add_parser("top", help="카테고리별 순위 (인기 무료·유료, 최고 매출, 인기 급상승)")
+    tp = sub.add_parser("top", help="top charts by category (top free/paid, top grossing, trending)")
     tp.add_argument("category", nargs="?", default="APPLICATION",
-                    help="카테고리 ID 또는 이름 (예: FINANCE, 금융, GAME, 게임). 생략하면 앱 전체")
+                    help="category ID or name (e.g. FINANCE, Finance, GAME, Games); all apps if omitted")
     tp.add_argument("-c", "--chart", choices=list(TOP_CHARTS), default="free",
-                    help=", ".join(f"{k}={v}" for k, v in _CHART_LABELS.items()) + " (기본 free)")
-    tp.add_argument("-n", "--limit", type=int, default=20, help="최대 순위 수 (기본 20, Play 는 200위 안팎까지)")
+                    help=", ".join(f"{k}={v}" for k, v in _CHART_LABELS.items()) + " (default free)")
+    tp.add_argument("-n", "--limit", type=int, default=20, help="maximum number of ranks (default 20; Play goes to about 200)")
     tp.set_defaults(func=cmd_top)
 
-    ca = sub.add_parser("categories", help="카테고리 ID·이름 목록 (top 에 넘길 값)")
+    ca = sub.add_parser("categories", help="category IDs and names (values for top)")
     ca.set_defaults(func=cmd_categories)
 
-    ce = sub.add_parser("cert", help="정식 서명 인증서 해시 (details 의 certificateSet)")
-    ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    ce = sub.add_parser("cert", help="official signing certificate hashes (certificateSet from details)")
+    ce.add_argument("package", help="package name (e.g. com.google.android.youtube)")
     ce.add_argument("--apk", action="store_true",
-                    help="APK 끝부분을 받아 서명 블록과 대조 (무료 앱만, 보관함에 없으면 purchase 함)")
+                    help="fetch the end of the APK and compare with its signing block (free apps only; acquires the app if it is not in the library)")
     ce.set_defaults(func=cmd_cert)
 
-    dl = sub.add_parser("download", help="APK 다운로드 (base + split + OBB, 무료 앱만)")
-    dl.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    dl = sub.add_parser("download", help="download APKs (base + splits + OBB, free apps only)")
+    dl.add_argument("package", help="package name (e.g. com.google.android.youtube)")
     dl.add_argument("-v", "--version-code", type=int,
-                    help="받을 버전의 versionCode (Play 에 남아 있는 과거 버전). 생략하면 최신")
+                    help="versionCode to download (an older version still on Play); latest if omitted")
     dl.add_argument("-o", "--out", default="downloads",
-                    help="저장 위치. 그 아래 <패키지>-<versionCode>/ 에 받는다 (기본 downloads)")
+                    help="output directory; files go to <package>-<versionCode>/ under it (default downloads)")
     dl.set_defaults(func=cmd_download)
 
     args = p.parse_args(argv)
@@ -383,7 +392,7 @@ def main(argv=None) -> int:
     except (_Missing, browser.LoginError, auth.AuthError, checkin.CheckinError, PlayApiError,
             NotDownloadable, apksig.SignatureError, download.DownloadError,
             requests.RequestException, ValueError) as e:
-        print(f"실패: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
 

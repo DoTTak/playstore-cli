@@ -37,7 +37,7 @@ def serve_session(srv, toc: pb.TocResponse):
 
 
 def test_build_session_accepts_tos(play_server):
-    serve_session(play_server, pb.TocResponse(tosContent="약관", tosToken="tost", cookie="dfe-cookie"))
+    serve_session(play_server, pb.TocResponse(tosContent="terms", tosToken="tost", cookie="dfe-cookie"))
 
     assert session.build(ACCOUNT, DEVICE) == SESSION
 
@@ -165,7 +165,7 @@ def test_app_delivery_missing_version(play_server):
     play_server.respond(delivery(""), path="/fdfe/delivery")
     play_server.respond(wrap(buyResponse=pb.BuyResponse(downloadToken="dtok-1")), path="/fdfe/purchase")
 
-    with pytest.raises(api.NotDownloadable, match="versionCode 1 의 다운로드 URL 이 없음"):
+    with pytest.raises(api.NotDownloadable, match="no download URL for versionCode 1"):
         PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube", 1)
 
 
@@ -204,27 +204,27 @@ def cluster(*children: pb.DocV2, next_page: str = "") -> pb.DocV2:
 def serve_search(srv, first: pb.ListResponse):
     # The first page carries results in preFetch and only a searchResponse in payload (real response layout)
     srv.respond(pb.ResponseWrapper(
-        payload=pb.Payload(searchResponse=pb.SearchResponse(originalQuery="은행")),
+        payload=pb.Payload(searchResponse=pb.SearchResponse(originalQuery="bank")),
         preFetch=[pb.PreFetch(response=pb.ResponseWrapper(payload=pb.Payload(listResponse=first)))],
     ).SerializeToString(), path="/fdfe/search")
 
 
 def test_search_follows_cluster_then_stream_pages(play_server):
-    related = pb.DocV2(docType=53, title="국민은행")  # related search, not an app
+    related = pb.DocV2(docType=53, title="bank account")  # related search, not an app
     serve_search(play_server, stream(
         cluster(app("a.one"), app("a.two"), next_page="getCluster?enpt=E1"),
-        next_page="searchList?q=%EC%9D%80%ED%96%89&ctntkn=T1"))
+        next_page="searchList?q=bank&ctntkn=T1"))
     play_server.respond(wrap(listResponse=stream(cluster(app("a.three")))), path="/fdfe/getCluster")
     play_server.respond(wrap(listResponse=stream(cluster(related), cluster(app("a.two"), app("a.four")))),
                         path="/fdfe/searchList")
 
-    apps = PlayApi(DEVICE, SESSION).search("은행")
+    apps = PlayApi(DEVICE, SESSION).search("bank")
 
     # The first cluster's next results (getCluster) come before the next clusters (searchList)
     assert [a.docid for a in apps] == ["a.one", "a.two", "a.three", "a.four"]
     assert [r["path"] for r in play_server.requests] == ["/fdfe/search", "/fdfe/getCluster", "/fdfe/searchList"]
     first, by_cluster, by_stream = play_server.requests
-    assert parse_qs(first["query"]) == {"q": ["은행"], "c": ["3"], "ksm": ["1"]}
+    assert parse_qs(first["query"]) == {"q": ["bank"], "c": ["3"], "ksm": ["1"]}
     assert parse_qs(by_cluster["query"]) == {"enpt": ["E1"]}
     assert parse_qs(by_stream["query"])["ctntkn"] == ["T1"]
     for req in play_server.requests:
@@ -255,7 +255,7 @@ def test_search_no_results(play_server):
 
 
 def review(cid: str, stars: int = 5) -> pb.Review:
-    return pb.Review(commentId=cid, starRating=stars, comment=f"{cid} 좋아요")
+    return pb.Review(commentId=cid, starRating=stars, comment=f"{cid} is great")
 
 
 def reviews_page(*reviews: pb.Review, next_page: str = "") -> bytes:
@@ -334,11 +334,11 @@ def category(cat_id: str, name: str) -> pb.DocV2:
 
 
 def test_categories(play_server):
-    play_server.respond(wrap(listResponse=stream(pb.DocV2(docType=45, title="전체 카테고리", child=[
-        category("GAME_ACTION", "액션"), pb.DocV2(title="no home link"), category("GAME_PUZZLE", "퍼즐")]))),
+    play_server.respond(wrap(listResponse=stream(pb.DocV2(docType=45, title="All categories", child=[
+        category("GAME_ACTION", "Action"), pb.DocV2(title="no home link"), category("GAME_PUZZLE", "Puzzle")]))),
         path="/fdfe/categoriesList")
 
-    assert PlayApi(DEVICE, SESSION).categories("GAME") == [("GAME_ACTION", "액션"), ("GAME_PUZZLE", "퍼즐")]
+    assert PlayApi(DEVICE, SESSION).categories("GAME") == [("GAME_ACTION", "Action"), ("GAME_PUZZLE", "Puzzle")]
 
     (req,) = play_server.requests
     assert parse_qs(req["query"]) == {"c": ["3"], "cat": ["GAME"]}

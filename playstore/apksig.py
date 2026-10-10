@@ -85,7 +85,7 @@ class HttpRangeReader:
         with self._http.get(self._url, headers={"Range": f"bytes={offset}-{offset + length - 1}"},
                             stream=True, timeout=30) as r:
             if r.status_code != 206:
-                raise SignatureError(f"Range 요청이 거절됨 (HTTP {r.status_code})")
+                raise SignatureError(f"Range request rejected (HTTP {r.status_code})")
             self.size = int(r.headers["Content-Range"].rsplit("/", 1)[1])
             self._url = r.url  # follow the redirect only once, then request the final URL directly
             data = r.content
@@ -108,16 +108,16 @@ def _find_eocd(tail: bytes) -> int:
             comment_len = struct.unpack_from("<H", tail, i + 20)[0]
             if i + EOCD_SIZE + comment_len == len(tail):
                 return i
-    raise SignatureError("zip 끝(EOCD)을 찾지 못함 — APK 가 아니거나 잘린 파일")
+    raise SignatureError("zip end (EOCD) not found: not an APK, or a truncated file")
 
 
 def _lp(buf: bytes, off: int) -> tuple[bytes, int]:
     """One u32-length-prefixed item → (content, next offset)."""
     if off + 4 > len(buf):
-        raise SignatureError("서명 블록 형식 오류")
+        raise SignatureError("malformed signing block")
     n = struct.unpack_from("<I", buf, off)[0]
     if off + 4 + n > len(buf):
-        raise SignatureError("서명 블록 형식 오류")
+        raise SignatureError("malformed signing block")
     return buf[off + 4: off + 4 + n], off + 4 + n
 
 
@@ -134,7 +134,7 @@ def _pairs(buf: bytes):
     while off + 12 <= len(buf):
         length, pair_id = struct.unpack_from("<QI", buf, off)
         if length < 4 or off + 8 + length > len(buf):
-            raise SignatureError("서명 블록 형식 오류")
+            raise SignatureError("malformed signing block")
         yield pair_id, buf[off + 12: off + 8 + length]
         off += 8 + length
 
@@ -168,15 +168,15 @@ def read_signers(reader) -> list[Signer]:
     eocd = _find_eocd(tail)
     cd_offset = struct.unpack_from("<I", tail, eocd + 16)[0]
     if cd_offset < 32:
-        raise SignatureError("APK 서명 블록 없음 (v1 서명만 있는 APK)")
+        raise SignatureError("no APK signing block (APK signed with v1 only)")
 
     footer = read(cd_offset - 24, 24)
     if footer[8:] != BLOCK_MAGIC:
-        raise SignatureError("APK 서명 블록 없음 (v1 서명만 있는 APK)")
+        raise SignatureError("no APK signing block (APK signed with v1 only)")
     block_size = struct.unpack_from("<Q", footer)[0]
     block_start = cd_offset - 8 - block_size
     if block_size < 24 or block_start < 0:
-        raise SignatureError("서명 블록 크기가 잘못됨")
+        raise SignatureError("invalid signing block size")
 
     # block = size(8) + pairs + size(8) + magic(16)
     body = read(block_start + 8, block_size - 24)
@@ -184,5 +184,5 @@ def read_signers(reader) -> list[Signer]:
                for pair_id, value in _pairs(body) if pair_id in SCHEMES
                for cert in _signer_certs(value)]
     if not signers:
-        raise SignatureError("서명 블록에 v2/v3 서명이 없음")
+        raise SignatureError("no v2/v3 signature in the signing block")
     return signers

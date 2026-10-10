@@ -1,7 +1,7 @@
 """Where login and device registration results are stored.
 
 The AAS token is a long-lived token roughly as sensitive as the account password, so files are mode 600.
-The default location is ~/.config/dottakstore; override it with PLAYSTORE_HOME.
+The default location is ~/.config/playstore-cli; override it with PLAYSTORE_HOME.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 def home() -> Path:
-    return Path(os.environ.get("PLAYSTORE_HOME") or Path.home() / ".config" / "dottakstore")
+    return Path(os.environ.get("PLAYSTORE_HOME") or Path.home() / ".config" / "playstore-cli")
 
 
 def account_path() -> Path:

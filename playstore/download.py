@@ -54,10 +54,10 @@ def _b64url(digest: bytes) -> str:
 def _verify(f: PlayFile, size: int, h) -> str | None:
     """The reason if size or hash differs from the delivery values, otherwise None."""
     if f.size and size != f.size:
-        return f"크기 불일치 ({size} != {f.size} 바이트)"
+        return f"size mismatch ({size} != {f.size} bytes)"
     algo, expected = f.expected_digest()
     if expected and _b64url(h.digest()) != expected.rstrip("="):
-        return f"{algo} 불일치"
+        return f"{algo} mismatch"
     return None
 
 

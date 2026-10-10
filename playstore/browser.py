@@ -81,7 +81,7 @@ def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 15) -> str:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.poll() is not None:
-            raise LoginError("브라우저가 바로 종료됐습니다")
+            raise LoginError("the browser exited right away")
         try:
             for t in http.get(f"http://127.0.0.1:{port}/json/list", timeout=2).json():
                 if t.get("type") == "page":
@@ -89,7 +89,7 @@ def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 15) -> str:
         except requests.RequestException:
             pass
         time.sleep(0.2)
-    raise LoginError("브라우저 DevTools 에 연결하지 못했습니다")
+    raise LoginError("could not connect to the browser's DevTools")
 
 
 def _profile_email(cdp: _Cdp) -> str | None:
@@ -115,7 +115,7 @@ def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
     """
     chrome = chrome or find_chrome()
     if not chrome:
-        raise LoginError("Chrome 계열 브라우저를 찾지 못했습니다. --oauth-token 으로 직접 넣으세요.")
+        raise LoginError("no Chrome-based browser found; pass the token with --oauth-token instead")
     profile_dir.mkdir(parents=True, exist_ok=True)
     port = _free_port()
     args = [
@@ -143,15 +143,15 @@ def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if proc.poll() is not None:
-                raise LoginError("로그인을 마치기 전에 브라우저가 닫혔습니다")
+                raise LoginError("the browser was closed before the login finished")
             cookies = cdp.call("Network.getCookies", urls=[url])["cookies"]
             token = next((c["value"] for c in cookies if c["name"] == "oauth_token"), None)
             if token:
                 return _profile_email(cdp), token
             time.sleep(1)
-        raise LoginError(f"{timeout:.0f}초 안에 로그인이 끝나지 않았습니다")
+        raise LoginError(f"the login did not finish within {timeout:.0f} seconds")
     except (OSError, websocket.WebSocketException) as e:
-        raise LoginError(f"브라우저 연결이 끊겼습니다: {e}") from e
+        raise LoginError(f"lost the connection to the browser: {e}") from e
     finally:
         if cdp:
             cdp.close()

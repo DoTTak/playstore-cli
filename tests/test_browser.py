@@ -5,7 +5,7 @@ import pytest
 
 from playstore import browser
 
-pytestmark = pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome 없음")
+pytestmark = pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome not found")
 
 
 @pytest.fixture

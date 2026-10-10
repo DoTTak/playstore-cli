@@ -87,7 +87,7 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
     )
     token = data.get("Token")
     if not token:
-        raise AuthError(f"응답에 Token 이 없음 (keys={sorted(data)})")
+        raise AuthError(f"no Token in the response (keys={sorted(data)})")
     return token
 
 
@@ -121,5 +121,5 @@ def exchange_aas_token(email: str, aas_token: str, service: str, *, gsf_id: str 
     data = _post(params, {"app": header_app, "User-Agent": "GoogleAuth/1.4"})
     token = data.get("Auth") or data.get("Token")
     if not token:
-        raise AuthError(f"{service} 토큰이 응답에 없음 (keys={sorted(data)})")
+        raise AuthError(f"no {service} token in the response (keys={sorted(data)})")
     return token

@@ -1,55 +1,55 @@
-# DoTTakStore
+# playstore-cli
 
-Google Play 스토어 비공식 클라이언트입니다 (연구·학습용).
+An unofficial Google Play Store client, for research and learning.
 
-Play 스토어 앱이 쓰는 내부 API(fdfe)를 직접 호출해서 다음을 할 수 있습니다.
+It calls the internal API (fdfe) that the Play Store app uses, so you can:
 
-- 구글 계정 로그인, 가상 기기 등록
-- 앱 검색, 상세 정보와 권한 목록 조회
-- 평점 요약과 리뷰(개발자 답변 포함) 조회
-- 카테고리별 순위 (인기 무료·인기 유료·최고 매출·인기 급상승)
-- 정식 서명 인증서 해시(SHA-1, SHA-256) 조회. 실제 APK의 서명 블록과 대조도 가능
-- APK 다운로드 (base·split APK, OBB, 과거 버전)
+- sign in to a Google account and register a virtual device
+- search apps, and look up app details and permissions
+- read the rating summary and reviews (with developer replies)
+- browse top charts by category (top free, top paid, top grossing, trending)
+- look up the official signing certificate hashes (SHA-1, SHA-256), and compare them with the APK's signing block
+- download APKs (base and split APKs, OBBs, older versions)
 
-## 요구 사항
+## Requirements
 
-- Python 3.12 이상, [uv](https://docs.astral.sh/uv/)
-- Chrome 계열 브라우저 (Chrome, Chromium, Edge, Brave): `login`에서 사용
-- 구글 계정: 연구용 별도 계정을 권장합니다 (아래 [주의](#주의) 참고)
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
+- A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`
+- A Google account. A separate account for research is recommended (see [Caveats](#caveats))
 
 ```bash
 uv sync
 ```
 
-## 빠른 시작
+## Quick start
 
 ```bash
-uv run python -m playstore login                               # 1. 구글 로그인 → AAS 토큰
-uv run python -m playstore checkin                             # 2. 가상 기기 등록 → gsfId
-uv run python -m playstore search youtube                      # 패키지명 찾기
-uv run python -m playstore top 금융                            # 카테고리별 순위 (인기 무료)
-uv run python -m playstore details com.google.android.youtube  # 상세 정보·권한
-uv run python -m playstore reviews com.google.android.youtube  # 평점·리뷰
-uv run python -m playstore cert com.google.android.youtube     # 정식 서명 해시
-uv run python -m playstore download com.google.android.youtube # APK 다운로드
+uv run python -m playstore login                               # 1. Google sign-in → AAS token
+uv run python -m playstore checkin                             # 2. register a virtual device → gsfId
+uv run python -m playstore search youtube                      # find package names
+uv run python -m playstore top Finance                         # top chart of a category (top free)
+uv run python -m playstore details com.google.android.youtube  # details and permissions
+uv run python -m playstore reviews com.google.android.youtube  # ratings and reviews
+uv run python -m playstore cert com.google.android.youtube     # official signing certificate hashes
+uv run python -m playstore download com.google.android.youtube # download the APKs
 ```
 
-`login`과 `checkin`은 처음 한 번만 하면 됩니다. Play 세션은 필요할 때 자동으로 만들어지고, Play 토큰이 만료되면(401) 저장된 AAS 토큰으로 다시 만든 뒤 재시도합니다.
+`login` and `checkin` are needed only once. A Play session is created whenever needed, and when the Play token expires (401) it is rebuilt from the saved AAS token and the request is retried.
 
-## 명령
+## Commands
 
-| 명령 | 하는 일 |
+| Command | What it does |
 |---|---|
-| `login` | 구글 계정 로그인 → AAS 토큰 저장 |
-| `checkin` | 가상 기기 등록 → gsfId 저장 |
-| `session` | Play 세션 생성 (보통은 자동으로 만들어져서 직접 쓸 일이 없음) |
-| `search <검색어>` | 앱 검색 |
-| `top [카테고리]` | 카테고리별 순위 (인기 무료·유료, 최고 매출, 인기 급상승) |
-| `categories` | 카테고리 ID와 이름 목록 |
-| `details <패키지>` | 앱 상세 정보와 권한 목록 |
-| `reviews <패키지>` | 평점 요약과 리뷰 |
-| `cert <패키지>` | 정식 서명 인증서의 SHA-1, SHA-256 |
-| `download <패키지>` | base·split APK와 OBB 다운로드 |
+| `login` | Sign in to a Google account → save an AAS token |
+| `checkin` | Register a virtual device → save its gsfId |
+| `session` | Create a Play session (normally created automatically) |
+| `search <query>` | Search apps |
+| `top [category]` | Top charts by category (top free/paid, top grossing, trending) |
+| `categories` | Category IDs and names |
+| `details <package>` | App details and permissions |
+| `reviews <package>` | Rating summary and reviews |
+| `cert <package>` | SHA-1 and SHA-256 of the official signing certificates |
+| `download <package>` | Download the base and split APKs and OBBs |
 
 ### login
 
@@ -57,18 +57,19 @@ uv run python -m playstore download com.google.android.youtube # APK 다운로�
 uv run python -m playstore login [--email EMAIL] [--oauth-token TOKEN] [--timeout 600]
 ```
 
-- 브라우저 창에 구글 계정 추가 화면(`accounts.google.com/EmbeddedSetup`)을 띄웁니다. 로그인(2단계 인증 포함)이 끝나면 `oauth_token` 쿠키를 읽고, 이를 장기 토큰인 AAS 토큰으로 교환합니다. 창은 자동으로 닫힙니다.
-- 로그인용 Chrome 프로필이 따로 보관되므로 2단계 인증은 보통 처음 한 번만 묻습니다.
-- `--oauth-token`을 주면 브라우저를 띄우지 않습니다. 이 토큰은 몇 분 안에 만료되니 바로 써야 합니다.
+- Opens the Google "Add account" page (`accounts.google.com/EmbeddedSetup`) in a browser window. Once you have signed in (including 2-step verification), it reads the `oauth_token` cookie and exchanges it for a long-lived AAS token. The window closes by itself.
+- The browser profile used for the login is kept, so 2-step verification is usually asked only the first time.
+- With `--oauth-token`, no browser is opened. That token expires within minutes, so use it right away.
 
 ### checkin
 
 ```bash
-uv run python -m playstore checkin [--profile pixel_9a] [--locale ko_KR] [--timezone Asia/Seoul] [--force]
+uv run python -m playstore checkin [--profile pixel_9a] [--locale en_US] [--timezone UTC] [--force]
 ```
 
-- 가상 기기(기본 Pixel 9a, Android 15 / SDK 35)를 구글에 등록하고 gsfId를 받습니다. 이후 Play 요청은 모두 이 기기 이름으로 나갑니다.
-- checkin을 할 때마다 계정에 새 기기가 추가되므로, 이미 등록한 기기가 있으면 그것을 다시 씁니다. 새로 등록하려면 `--force`를 줍니다.
+- Registers a virtual device (Pixel 9a, Android 15 / SDK 35 by default) with Google and gets its gsfId. All later Play requests are made as this device.
+- Play answers in the device locale (app titles, install counts, category names). Prices are in the currency of the account's country.
+- Every checkin adds a new device to the account, so an already registered device is reused. Pass `--force` to register a new one.
 
 ### search
 
@@ -78,35 +79,35 @@ uv run python -m playstore search youtube [-n 20]
 
 ```
   1. YouTube — Google LLC
-     com.google.android.youtube · 21.40.161 · 다운로드 10,000,000,000회 이상 · 무료
-  2. Microsoft Excel: Spreadsheets — Microsoft Corporation
-     com.microsoft.office.excel · 16.0.20527.20034 · 다운로드 1,000,000,000회 이상 · 무료
+     com.google.android.youtube · 21.40.161 · 10,000,000,000+ downloads · Free
+  2. Messenger — Meta Platforms, Inc.
+     com.facebook.orca · 582.0.0.61.92 · 5,000,000,000+ downloads · Free
 ```
 
-- 페이지를 넘기며 중복 없이 `-n`개까지 모읍니다. Play가 더 주지 않으면 거기서 끝납니다 ("youtube"는 463개).
-- 결과가 없는 검색어에도 Play는 인기 앱을 결과로 돌려줍니다.
+- Pages through the results and collects up to `-n` apps without duplicates, until Play stops returning more ("youtube" ends at 508).
+- Play returns popular apps even for a query with no match.
 
 ### top
 
 ```bash
-uv run python -m playstore top [카테고리] [-c free|paid|grossing|trending] [-n 20]
+uv run python -m playstore top [category] [-c free|paid|grossing|trending] [-n 20]
 ```
 
 ```
-$ uv run python -m playstore top 게임 -c paid -n 3
-GAME 인기 유료 순위
-  1. 던전 머지! — Brilbox
+$ uv run python -m playstore top GAME -c paid -n 3
+GAME Top paid
+  1. Dungeon Merge! — Brilbox
      com.brilbox.dungeonmerge · 1.0.41 · ₩70
-  2. Minecraft: 나만의 세계를 꿈꾸고 만들어보세요 — Mojang
+  2. Minecraft: Dream it, Build it! — Mojang
      com.mojang.minecraftpe · 1.26.52.3 · ₩9,900
-  3. 스타듀 밸리 Stardew Valley — ConcernedApe
+  3. Stardew Valley — ConcernedApe
      com.chucklefish.stardewvalley · 1.6.15.3 · ₩5,900
 ```
 
-- 카테고리는 ID(`FINANCE`, `game_action`처럼 대소문자 무관)나 `categories`에 나오는 이름(`금융`, `게임`)으로 줍니다. 생략하면 앱 전체(`APPLICATION`)입니다. 이름이 겹치는 카테고리(`스포츠` = `SPORTS`, `GAME_SPORTS`)는 ID로 지정해야 합니다.
-- `-c`: `free` 인기 무료(기본), `paid` 인기 유료, `grossing` 최고 매출, `trending` 인기 급상승.
-- 순위는 7개씩 받아 `-n`개까지 모읍니다. Play는 200위 안팎까지 줍니다 (200위까지 약 5초). 앱이 적은 순위는 더 짧습니다 (금융 인기 유료는 1개).
-- 순위 응답에는 설치 수가 없어서 출력에서 빠집니다.
+- The category is an ID (`FINANCE`, `GAME_PUZZLE`; any case if it has an underscore) or a name as `categories` prints it (`Finance`, `Puzzle`, `Health & Fitness`; any case). Without one, the chart covers all apps (`APPLICATION`). Names shared by several categories (`Sports` = `SPORTS`, `GAME_SPORTS`) need the ID.
+- `-c`: `free` top free (default), `paid` top paid, `grossing` top grossing, `trending` trending.
+- Ranks come 7 at a time and are collected up to `-n`. Play goes to about rank 200 (around 5 seconds for 200). Charts with few apps are shorter (top paid in Finance has 1).
+- Top chart responses carry no install count, so it is left out of the output.
 
 ### categories
 
@@ -115,17 +116,17 @@ uv run python -m playstore categories
 ```
 
 ```
-APPLICATION              앱
-  HEALTH_AND_FITNESS     건강/운동
+APPLICATION              Apps
+  ANDROID_AUTO_PROJECTED Android Auto
   ...
-  FINANCE                금융
+  FINANCE                Finance
   ...
-GAME                     게임
-  GAME_WORD              단어
+GAME                     Games
+  GAME_ACTION            Action
   ...
 ```
 
-- `top`에 넘길 카테고리 ID와 이름입니다. 이름은 기기 locale로 옵니다 (앱 35개, 게임 17개).
+- The category IDs and names to pass to `top`. Names come in the device locale (35 app and 17 game categories).
 
 ### details
 
@@ -134,19 +135,19 @@ uv run python -m playstore details com.google.android.youtube
 ```
 
 ```
-제목     YouTube
-패키지   com.google.android.youtube
-버전     21.40.161 (1561301413)
-개발자   Google LLC
-업데이트 2026. 10. 1.
-설치수   다운로드 10,000,000,000회 이상
-크기     139.0 MB
-권한     51개
+Title        YouTube
+Package      com.google.android.youtube
+Version      21.40.161 (1561301413)
+Developer    Google LLC
+Updated      Oct 1, 2026
+Installs     10,000,000,000+ downloads
+Size         139.1 MB
+Permissions  51
   android.permission.ACCESS_ADSERVICES_AD_ID
   ...
 ```
 
-권한 목록은 매니페스트를 그대로 옮긴 것이 아니라 **Play가 이 기기에 맞게 가공한 목록**입니다. 매니페스트에서 `maxSdkVersion`이 기기 SDK보다 낮은 권한은 빠지고, 암묵적 권한은 더해집니다. 예를 들어 YouTube는 매니페스트에 50개가 있고, `WRITE_EXTERNAL_STORAGE` 때문에 자동으로 붙는 `READ_EXTERNAL_STORAGE`가 더해져 51개입니다.
+The permission list is not the manifest as-is but **a list Play adapts to this device**: permissions whose `maxSdkVersion` is below the device SDK are dropped, and implied permissions are added. YouTube, for example, has 50 in its manifest, plus `READ_EXTERNAL_STORAGE`, implied by `WRITE_EXTERNAL_STORAGE`, for 51.
 
 ### reviews
 
@@ -155,25 +156,25 @@ uv run python -m playstore reviews com.google.android.youtube [-n 20] [-s releva
 ```
 
 ```
-YouTube — 평점 2.9 (160,324,551명)
+YouTube — rated 2.9 (160,324,552 ratings)
   ★5  37%  59,074,443
   ★4   7%  11,500,112
   ★3   7%  11,071,837
   ★2   6%  9,385,479
   ★1  43%  69,292,286
 
-리뷰 20개 (관련성순)
+20 reviews (most relevant)
 
-  1. ★★★★☆  <작성자> · 2026-07-07 · 21.25.529 · 유용함 1,102
-     <리뷰 내용>
-     └ 개발자 답변 (<날짜>)
-       <답변 내용>
+  1. ★★★★☆  <author> · 2026-07-07 · 21.25.529 · 1,102 found helpful
+     <review text>
+     └ Developer reply (<date>)
+       <reply text>
 ```
 
-- 평점 요약(평균, 별점별 분포) 다음에 리뷰를 보여 줍니다. 리뷰마다 작성자, 날짜, 작성 당시 앱 버전, "유용함" 수, 개발자 답변이 함께 나옵니다.
-- `-s`: `relevant`(관련성순, 기본)는 웹의 Play 스토어 상세 페이지에 보이는 리뷰 순서와 같고, `newest`는 최신순입니다.
-- `-r`: 그 별점의 리뷰만 받습니다.
-- 페이지를 넘기며 `-n`개까지 모읍니다 (요청 한 번에 100개씩).
+- The rating summary (average and per-star distribution) is followed by the reviews. Each review shows the author, date, app version at the time, "found helpful" count and the developer reply.
+- `-s`: `relevant` (most relevant, default) is the same order as the reviews on the Play Store web page; `newest` is newest first.
+- `-r`: only reviews with that many stars.
+- Pages through the reviews up to `-n` (100 per request).
 
 ### cert
 
@@ -183,23 +184,23 @@ uv run python -m playstore cert com.google.android.youtube [--apk]
 
 | | `cert` | `cert --apk` |
 |---|---|---|
-| 출처 | Play details 응답의 `certificateSet` | 실제 APK의 서명 블록 (v2/v3/v3.1) |
-| 요청 | details 1회 | details, delivery(필요하면 purchase), APK 끝부분 Range 요청 몇 번 (YouTube: 3회, 80KB) |
-| 유료 앱 | 됨 (구매 없이) | 안 됨 |
-| 부작용 | 없음 | 계정 보관함에 없는 무료 앱이면 보관함에 추가됨 |
+| Source | `certificateSet` in the Play details response | The real APK's signing block (v2/v3/v3.1) |
+| Requests | 1 details request | details, delivery (purchase if needed), a few Range requests for the end of the APK (YouTube: 3 requests, 80 KB) |
+| Paid apps | Yes (no purchase) | No |
+| Side effects | None | A free app not yet in the account library gets added to it |
 
-- 서명 해시만 필요하면 `cert`로 충분합니다. `--apk`는 Play가 알려 준 해시를 실제 배포 파일과 대조할 때 씁니다.
-- 해시는 **인증서(DER)의 해시**입니다. 안드로이드 `PackageManager`, `apksigner`의 certificate digest와 같은 기준입니다.
-- **인증서가 여러 개인 앱이 있고, details 목록과 APK 서명자가 꼭 같지는 않습니다.** YouTube 21.40.161의 경우:
+- `cert` is enough when you only need the signing hashes. `--apk` checks the hashes Play reports against the file it actually distributes.
+- The hashes are **hashes of the certificate (DER)**, the same as the certificate digest from Android's `PackageManager` or `apksigner`.
+- **Some apps have several certificates, and the details list doesn't necessarily match the APK's signers.** YouTube 21.40.161:
 
-  | 출처 | 인증서 SHA-1 |
+  | Source | Certificate SHA-1 |
   |---|---|
   | details `certificateSet` | `4ba713df…`, `24bb24c0…` |
-  | APK v3 서명 (Android 7~12, SDK 24~32) | `24bb24c0…` |
-  | APK v3.1 서명 (Android 13 이상, SDK 33~) | `f8456b1d…` (서명 키 교체: `24bb24c0…` → `f8456b1d…`) |
+  | APK v3 signer (Android 7-12, SDK 24-32) | `24bb24c0…` |
+  | APK v3.1 signer (Android 13+, SDK 33+) | `f8456b1d…` (key rotation: `24bb24c0…` → `f8456b1d…`) |
 
-  안드로이드 13 이상 기기는 교체된 키(`f8456b1d…`)를 쓰는데, 이 값은 details 목록에 없습니다. 반대로 details에만 있는 `4ba713df…`는 APK 서명과 lineage 어디에서도 찾을 수 없었습니다. 그래서 기기에서 보이는 서명과 비교하려면 `--apk` 결과까지 함께 봐야 합니다.
-- `--apk`는 v1(JAR) 서명만 있는 APK를 지원하지 않습니다.
+  Devices on Android 13 or later use the rotated key (`f8456b1d…`), which is not in the details list. Conversely, `4ba713df…`, which only details lists, is nowhere in the APK's signers or lineage. To compare with what a device reports, check the `--apk` result as well.
+- `--apk` does not support APKs signed with v1 (JAR) only.
 
 ### download
 
@@ -208,89 +209,89 @@ uv run python -m playstore download com.google.android.youtube [-v VERSION_CODE]
 ```
 
 ```
-YouTube 21.40.161 (1561301413) — 파일 4개, 139.0 MB → downloads/com.google.android.youtube-1561301413
+YouTube 21.40.161 (1561301413) — 4 files, 139.1 MB → downloads/com.google.android.youtube-1561301413
   [1/4] base.apk (62.1 MB)  OK
   [2/4] split_config.arm64_v8a.apk (74.0 MB)  OK
-  [3/4] split_config.ko.apk (0.3 MB)  OK
+  [3/4] split_config.en.apk (0.3 MB)  OK
   [4/4] split_config.xxhdpi.apk (2.7 MB)  OK
-설치: adb install-multiple downloads/com.google.android.youtube-1561301413/*.apk
+Install: adb install-multiple downloads/com.google.android.youtube-1561301413/*.apk
 ```
 
-- `downloads/<패키지>-<versionCode>/` 아래에 base APK, split APK 전부, OBB를 받습니다.
-- 파일 이름은 기기의 `/data/app` 배치를 따릅니다 (`base.apk`, `split_<이름>.apk`). 그래서 출력에 나온 `adb install-multiple` 명령으로 바로 설치할 수 있습니다. OBB(`[main|patch].<versionCode>.<패키지>.obb`)는 기기의 `/sdcard/Android/obb/<패키지>/`에 넣습니다.
-- 파일마다 Play가 알려 준 크기와 SHA-256(OBB는 SHA-1)을 대조합니다. 다 받지 못했거나 맞지 않는 파일은 남기지 않고, 이미 받아서 검증된 파일은 다시 받지 않습니다.
-- `-v`로 과거 버전을 받을 수 있습니다 (Play에 남아 있는 버전만). 버전 코드는 직접 알아야 합니다. Play에 없는 버전이면 `versionCode N 의 다운로드 URL 이 없음`으로 실패합니다.
-- 무료 앱만 받을 수 있습니다. 계정 보관함에 없으면 자동으로 추가(purchase)합니다.
+- Downloads the base APK, every split APK and the OBBs into `downloads/<package>-<versionCode>/`.
+- File names follow the on-device `/data/app` layout (`base.apk`, `split_<name>.apk`), so the printed `adb install-multiple` command installs them directly. OBBs (`[main|patch].<versionCode>.<package>.obb`) go in `/sdcard/Android/obb/<package>/` on the device.
+- Each file is checked against the size and SHA-256 (SHA-1 for OBBs) that Play reports. Incomplete or mismatching files are not kept, and files already downloaded and verified are not downloaded again.
+- `-v` downloads an older version, if Play still has it. You need to know the version code. For a version Play doesn't have, it fails with `no download URL for versionCode N`.
+- Free apps only. An app not yet in the account library is added to it (purchase).
 
-## 저장 위치
+## Storage
 
-| 경로 | 내용 |
+| Path | Contents |
 |---|---|
-| `~/.config/dottakstore/account.json` | 이메일, AAS 토큰 (권한 600) |
-| `~/.config/dottakstore/device.json` | 기기 프로필, gsfId, checkin 토큰 |
-| `~/.config/dottakstore/session.json` | Play 토큰, deviceConfigToken, dfeCookie |
-| `~/.config/dottakstore/chrome-profile/` | 로그인용 Chrome 프로필 |
-| `downloads/` | 받은 APK (git 제외) |
+| `~/.config/playstore-cli/account.json` | Email and AAS token (mode 600) |
+| `~/.config/playstore-cli/device.json` | Device profile, gsfId, checkin tokens |
+| `~/.config/playstore-cli/session.json` | Play token, deviceConfigToken, dfeCookie |
+| `~/.config/playstore-cli/chrome-profile/` | Browser profile for the login |
+| `downloads/` | Downloaded APKs (git-ignored) |
 
-`PLAYSTORE_HOME` 환경 변수로 `~/.config/dottakstore` 위치를 바꿀 수 있습니다.
+Set the `PLAYSTORE_HOME` environment variable to use another directory than `~/.config/playstore-cli`.
 
-## 구조
+## Layout
 
 ```
 playstore/
   __main__.py        CLI
-  browser.py         로그인 1단계: Chrome(DevTools 프로토콜)으로 oauth_token 쿠키 획득
-  auth.py            android.clients.google.com/auth: oauth_token → AAS → ac2dm / Play 토큰
-  device.py          기기 프로필(.properties) → User-Agent, checkin 요청, 기기 구성
-  checkin.py         가상 기기 등록 → gsfId
-  session.py         Play 토큰 → 기기 구성 업로드 → 약관(toc)
+  browser.py         login step 1: get the oauth_token cookie through Chrome (DevTools protocol)
+  auth.py            android.clients.google.com/auth: oauth_token → AAS → ac2dm / Play tokens
+  device.py          device profile (.properties) → User-Agent, checkin request, device configuration
+  checkin.py         virtual device registration → gsfId
+  session.py         Play token → device config upload → terms of service (toc)
   api.py             fdfe API: details, search, top_chart, categories, reviews, purchase, delivery
-  download.py        delivery 응답 → 파일 목록, 다운로드와 검증
-  apksig.py          APK 서명 블록(v2/v3/v3.1) 파서 (로컬 파일 / HTTP Range)
-  store.py           계정·기기·세션 저장
-  googleplay.proto   필요한 메시지만 둔 Play 프로토콜 정의 (googleplay_pb2.py 는 생성물)
-  profiles/          기기 프로필
-tests/               로컬 HTTP 대역으로 검증 (실제 구글 서버와 통신하지 않음)
+  download.py        delivery response → file list, download and verification
+  apksig.py          APK signing block (v2/v3/v3.1) parser (local file / HTTP Range)
+  store.py           account, device and session storage
+  googleplay.proto   Play protocol definitions, only the messages needed (googleplay_pb2.py is generated)
+  profiles/          device profiles
+tests/               tests against local HTTP stand-ins (no requests to Google)
 ```
 
-## 개발
+## Development
 
 ```bash
 uv run pytest
 ```
 
-proto를 고쳤으면 저장소 루트에서 다시 생성합니다 (protoc 28.x).
+After changing the proto, regenerate it from the repository root (protoc 28.x):
 
 ```bash
 protoc -I. --python_out=. playstore/googleplay.proto
 ```
 
-## 실제 응답으로 확인한 Play API 동작
+## Play API behavior confirmed against real responses
 
-참고 구현(gpapi, Aurora)에 없거나 다른 부분입니다.
+Things that are missing from, or differ from, the reference implementations (gpapi, Aurora):
 
-- **서명 해시:** details 응답의 `AppDetails` 필드 22(`certificateSet`)에 인증서별 SHA-1·SHA-256이 base64url(패딩 없음)로 옵니다. 유료 앱이나 기기 비호환 앱도 마찬가지입니다. 다만 APK의 서명자 목록과 꼭 같지는 않습니다 ([cert](#cert) 참고).
-- **delivery 해시:** delivery 응답의 파일 `sha1`/`sha256`도 base64url(패딩 없음)입니다.
-- **없는 버전:** Play에 없는 versionCode로 delivery를 요청하면 오류 없이 `downloadUrl`만 빈 값으로 옵니다.
-- **검색 User-Agent:** 최신 Play User-Agent로 `search`를 보내면 결과 묶음이 빈 채로 와서, 검색은 구버전 User-Agent로 보냅니다. 결과는 묶음의 다음 결과(`getCluster?…`)와 다음 묶음(`searchList?…`) 두 경로로 이어집니다.
-- **리뷰:** `rev`의 `sort`는 `2`가 관련성순, `0`이 최신순입니다. 없는 앱에도 오류 없이 빈 목록(HTTP 200)이 오고, 다음 페이지 경로(`ptkn`)에 정렬과 별점 필터가 이어집니다. 리뷰의 "유용함" 수는 gpapi 정의에 없는 필드 38입니다.
-- **순위:** `listTopChartItems?c=3&scat=<카테고리 ID>&stcid=<순위 종류>`입니다. `stcid`는 `apps_topselling_free`, `apps_topselling_paid`, `apps_topgrossing`, `apps_movers_shakers`이고, `scat`에 `apps`처럼 카테고리 ID가 아닌 값을 넣으면 빈 목록이 옵니다. 다음 7개는 묶음의 `getCluster?…`로 이어집니다. 구버전 User-Agent로 보내도 같은 앱들이 오지만 일부 순위의 순서가 달라서(금융 인기 무료 23~37위 등) 순위는 기기 프로필의 User-Agent로 보냅니다.
-- **카테고리 목록:** 최신 Play User-Agent로 `categoriesList`를 보내면 `listResponse` 없이 새 스트림 형식으로 와서, 검색처럼 구버전 User-Agent로 보냅니다. 카테고리 ID는 각 문서의 카테고리 홈 경로(`homeV2?cat=FINANCE&c=3`)에 있습니다.
-- **권한 목록:** 매니페스트가 아니라 기기 SDK에 맞게 가공된 목록이 옵니다. `maxSdkVersion`으로 빠지는 권한이 있고, 암묵적 권한은 더해집니다.
-- **다운로드 CDN:** 구글 CDN(`*.gvt1.com`)은 끝 기준 Range(`bytes=-N`)를 416으로 거절합니다. 시작과 끝을 모두 지정해야 합니다.
-- **인증 요청 TLS:** `/auth`는 TLS ALPN을 보내거나 세션 티켓을 끄면 403 `BadAuthentication`을 줍니다 (gpsoauth와 같은 조정이 필요).
+- **Signing hashes:** field 22 of `AppDetails` in the details response (`certificateSet`) holds each certificate's SHA-1 and SHA-256, base64url-encoded without padding. Paid apps and apps incompatible with the device have it too. It doesn't necessarily match the APK's signers, though (see [cert](#cert)).
+- **delivery hashes:** the file `sha1`/`sha256` in a delivery response are base64url without padding too.
+- **Missing versions:** asking delivery for a versionCode Play doesn't have returns no error, only an empty `downloadUrl`.
+- **Search User-Agent:** sending `search` with the current Play User-Agent returns empty result clusters, so search uses a legacy User-Agent. Results continue along two paths: a cluster's next results (`getCluster?…`) and the next clusters (`searchList?…`).
+- **Reviews:** `rev` takes `sort` `2` for most relevant and `0` for newest. An unknown app returns an empty list (HTTP 200) instead of an error, and the next-page path (`ptkn`) carries the sort and star filter over. The "found helpful" count of a review is field 38, which gpapi doesn't define.
+- **Top charts:** `listTopChartItems?c=3&scat=<category ID>&stcid=<chart>`, where `stcid` is `apps_topselling_free`, `apps_topselling_paid`, `apps_topgrossing` or `apps_movers_shakers`. A `scat` that is not a category ID (such as `apps`) returns an empty list. The next 7 ranks continue through the cluster's `getCluster?…`. With the legacy User-Agent the same apps come back but some ranks are reordered (ranks 23-37 of top free in Finance, for example), so top charts use the device profile's User-Agent.
+- **Category list:** sending `categoriesList` with the current Play User-Agent returns a newer stream format without `listResponse`, so it uses the legacy User-Agent like search. The category ID is in each document's category home path (`homeV2?cat=FINANCE&c=3`).
+- **Permissions:** the list is adapted to the device SDK rather than copied from the manifest: some permissions are dropped because of `maxSdkVersion`, and implied permissions are added.
+- **Download CDN:** Google's CDN (`*.gvt1.com`) rejects suffix ranges (`bytes=-N`) with 416. Both start and end have to be given.
+- **Auth TLS:** `/auth` returns 403 `BadAuthentication` if TLS ALPN is sent or session tickets are disabled (the same tweaks as gpsoauth are needed).
 
-## 주의
+## Caveats
 
-- 연구·학습 목적의 프로젝트입니다. Google Play 비공식 API를 쓰므로 서비스 약관에 어긋날 수 있고, **계정이 제한될 수 있습니다.** 연구용 별도 계정을 쓰세요.
-- AAS 토큰은 계정 비밀번호에 준하는 장기 토큰입니다. `account.json`이 유출되지 않게 하세요.
-- 받은 APK는 각 개발자의 저작물입니다. 재배포하지 마세요.
+- This project is for research and learning. It uses an unofficial Google Play API, which may go against the terms of service, and **the account may get restricted.** Use a separate account for research.
+- The AAS token is a long-lived token roughly as sensitive as the account password. Keep `account.json` private.
+- Downloaded APKs are their developers' work. Don't redistribute them.
 
-## 참고
+## References
 
-- [Aurora Store / gplayapi](https://gitlab.com/AuroraOSS/gplayapi): 요청 헤더, 검색, 기기 프로필
-- [googleplay-api (gpapi)](https://github.com/NoMore201/googleplay-api): proto 필드 번호, checkin, delivery
-- [gpsoauth](https://github.com/simon-weber/gpsoauth): `/auth` TLS 설정
+- [Aurora Store / gplayapi](https://gitlab.com/AuroraOSS/gplayapi): request headers, search, device profiles
+- [googleplay-api (gpapi)](https://github.com/NoMore201/googleplay-api): proto field numbers, checkin, delivery
+- [gpsoauth](https://github.com/simon-weber/gpsoauth): `/auth` TLS settings
 - [APK Signature Scheme v2](https://source.android.com/docs/security/features/apksigning/v2)
 
-`playstore/profiles/pixel_9a.properties`는 The Calyx Institute의 기기 프로필이며 GPL-3.0-or-later입니다.
+`playstore/profiles/pixel_9a.properties` is a device profile from The Calyx Institute, licensed GPL-3.0-or-later.
