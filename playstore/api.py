@@ -23,6 +23,10 @@ class PlayApiError(Exception):
         self.status = status
 
 
+class NotDownloadable(Exception):
+    """유료 앱, 기기 비호환 등으로 다운로드 URL 을 받을 수 없음."""
+
+
 class PlayApi:
     """device: checkin 결과(device.json), session: Play 세션 토큰들(session.json)."""
 
@@ -96,3 +100,35 @@ class PlayApi:
 
     def details(self, package: str) -> pb.DocV2:
         return self.request("GET", "details", params={"doc": package}).payload.detailsResponse.docV2
+
+    def purchase(self, package: str, version_code: int) -> str:
+        """무료 앱을 계정 보관함에 추가('획득')한다. downloadToken 이 오면 delivery 에 넘긴다."""
+        w = self.request("POST", "purchase", data={"doc": package, "ot": "1", "vc": str(version_code)})
+        return w.payload.buyResponse.downloadToken
+
+    def delivery(self, package: str, version_code: int,
+                 download_token: str = "") -> pb.AndroidAppDeliveryData:
+        params = {"doc": package, "ot": "1", "vc": str(version_code)}
+        if download_token:
+            params["dtok"] = download_token
+        return self.request("GET", "delivery", params=params).payload.deliveryResponse.appDeliveryData
+
+    def app_delivery(self, package: str) -> tuple[pb.DocV2, pb.AndroidAppDeliveryData]:
+        """details → delivery (보관함에 없으면 purchase 후 재시도). 다운로드 URL 이 든 데이터를 반환."""
+        doc = self.details(package)
+        paid = next((o for o in doc.offer if o.offerType == 1 and o.micros > 0), None)
+        if paid:
+            raise NotDownloadable(f"유료 앱 ({paid.formattedAmount})")
+        vc = doc.details.appDetails.versionCode
+        if not vc:
+            raise NotDownloadable("이 기기 프로필에 호환되는 버전이 없음 (versionCode=0)")
+
+        try:
+            data = self.delivery(package, vc)
+        except PlayApiError:
+            data = None
+        if not (data and data.downloadUrl):
+            data = self.delivery(package, vc, self.purchase(package, vc))
+        if not data.downloadUrl:
+            raise NotDownloadable("delivery 응답에 다운로드 URL 이 없음")
+        return doc, data

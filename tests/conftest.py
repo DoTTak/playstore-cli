@@ -6,7 +6,10 @@ import pytest
 
 
 class FakeServer:
-    """로컬 HTTP 대역. respond() 로 경로별 응답을 정하고, 받은 요청은 requests 에 쌓인다."""
+    """로컬 HTTP 대역. respond() 로 경로별 응답을 정하고, 받은 요청은 requests 에 쌓인다.
+
+    같은 경로에 respond() 를 여러 번 하면 그 순서대로 응답하고, 마지막 응답은 계속 반복한다.
+    """
 
     def __init__(self):
         self.routes, self.requests = {}, []
@@ -16,7 +19,8 @@ class FakeServer:
 
     def respond(self, body: bytes | str, status: int = 200, path: str | None = None):
         """path 를 생략하면 다른 경로에 걸리지 않은 모든 요청의 응답이 된다."""
-        self.routes[path] = (status, body.encode() if isinstance(body, str) else body)
+        self.routes.setdefault(path, []).append(
+            (status, body.encode() if isinstance(body, str) else body))
 
     def by_path(self, path: str) -> list[dict]:
         return [r for r in self.requests if r["path"] == path]
@@ -30,7 +34,8 @@ class FakeServer:
                 body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
                 server.requests.append({"method": self.command, "path": url.path, "query": url.query,
                                         "headers": self.headers, "body": body})
-                status, out = server.routes.get(url.path) or server.routes.get(None, (404, b""))
+                queue = server.routes.get(url.path) or server.routes.get(None) or [(404, b"")]
+                status, out = queue.pop(0) if len(queue) > 1 else queue[0]
                 self.send_response(status)
                 self.send_header("Content-Length", str(len(out)))
                 self.end_headers()

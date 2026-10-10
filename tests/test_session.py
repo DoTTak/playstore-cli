@@ -94,3 +94,54 @@ def test_details_unauthorized(play_server):
     with pytest.raises(PlayApiError) as e:
         PlayApi(DEVICE, SESSION).details("com.google.android.youtube")
     assert e.value.status == 401
+
+
+def serve_details(srv, *, version_code=1561301413, offer=None):
+    doc = pb.DocV2(docid="com.google.android.youtube", title="YouTube",
+                   offer=[offer or pb.Offer(micros=0, offerType=1)],
+                   details=pb.DocumentDetails(appDetails=pb.AppDetails(versionCode=version_code)))
+    srv.respond(wrap(detailsResponse=pb.DetailsResponse(docV2=doc)), path="/fdfe/details")
+
+
+def delivery(url: str = "") -> bytes:
+    return wrap(deliveryResponse=pb.DeliveryResponse(appDeliveryData=pb.AndroidAppDeliveryData(
+        downloadUrl=url, downloadAuthCookie=[pb.HttpCookie(name="MarketDA", value="c")])))
+
+
+def test_app_delivery_owned_app_skips_purchase(play_server):
+    serve_details(play_server)
+    play_server.respond(delivery("https://play.example/base.apk"), path="/fdfe/delivery")
+
+    doc, data = PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
+
+    assert data.downloadUrl == "https://play.example/base.apk"
+    assert not play_server.by_path("/fdfe/purchase")
+    (req,) = play_server.by_path("/fdfe/delivery")
+    assert parse_qs(req["query"]) == {"doc": ["com.google.android.youtube"], "ot": ["1"], "vc": ["1561301413"]}
+
+
+def test_app_delivery_purchases_then_retries(play_server):
+    serve_details(play_server)
+    play_server.respond(delivery(""), path="/fdfe/delivery")  # 아직 보관함에 없음
+    play_server.respond(delivery("https://play.example/base.apk"), path="/fdfe/delivery")
+    play_server.respond(wrap(buyResponse=pb.BuyResponse(downloadToken="dtok-1")), path="/fdfe/purchase")
+
+    _, data = PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
+
+    assert data.downloadUrl == "https://play.example/base.apk"
+    (buy,) = play_server.by_path("/fdfe/purchase")
+    assert form(buy) == {"doc": ["com.google.android.youtube"], "ot": ["1"], "vc": ["1561301413"]}
+    assert parse_qs(play_server.by_path("/fdfe/delivery")[1]["query"])["dtok"] == ["dtok-1"]
+
+
+def test_app_delivery_paid_app(play_server):
+    serve_details(play_server, offer=pb.Offer(micros=1_100_000_000, formattedAmount="₩1,100", offerType=1))
+    with pytest.raises(api.NotDownloadable, match="₩1,100"):
+        PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
+    assert not play_server.by_path("/fdfe/purchase")
+
+
+def test_app_delivery_incompatible(play_server):
+    serve_details(play_server, version_code=0)
+    with pytest.raises(api.NotDownloadable, match="versionCode=0"):
+        PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")

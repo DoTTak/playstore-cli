@@ -90,7 +90,9 @@ message ServerCommands {
 
 message Payload {
   optional DetailsResponse detailsResponse = 2;
+  optional BuyResponse buyResponse = 4;
   optional TocResponse tocResponse = 6;
+  optional DeliveryResponse deliveryResponse = 21;
   optional AcceptTosResponse acceptTosResponse = 22;
   optional UploadDeviceConfigResponse uploadDeviceConfigResponse = 28;
 }
@@ -127,7 +129,15 @@ message DocV2 {
   optional string docid = 1;
   optional string title = 5;
   optional string creator = 6;
+  repeated Offer offer = 8;
   optional DocumentDetails details = 13;
+}
+
+message Offer {
+  optional int64 micros = 1;                 // 가격 × 10^6, 무료면 0
+  optional string currencyCode = 2;
+  optional string formattedAmount = 3;
+  optional int32 offerType = 8;              // 1 = 구매
 }
 
 message DocumentDetails {
@@ -143,4 +153,36 @@ message AppDetails {
   optional string numDownloads = 13;
   optional string packageName = 14;
   optional string uploadDate = 16;
+}
+
+// --- purchase / delivery (fdfe/purchase, fdfe/delivery) ----------------------
+
+message BuyResponse {
+  optional string downloadToken = 55;        // → delivery 의 dtok
+}
+
+message DeliveryResponse {
+  optional AndroidAppDeliveryData appDeliveryData = 2;
+}
+
+message AndroidAppDeliveryData {
+  optional int64 downloadSize = 1;
+  optional string sha1 = 2;
+  optional string downloadUrl = 3;           // base APK
+  repeated HttpCookie downloadAuthCookie = 5;
+  repeated Split split = 15;                 // split APK (config.arm64_v8a 등)
+  optional string sha256 = 19;
+}
+
+message HttpCookie {
+  optional string name = 1;
+  optional string value = 2;
+}
+
+message Split {
+  optional string name = 1;
+  optional int64 size = 2;
+  optional string sha1 = 4;
+  optional string downloadUrl = 5;
+  optional string sha256 = 9;
 }

@@ -4,8 +4,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import auth, browser, checkin, session, store
-from .api import PlayApi, PlayApiError
+from . import apksig, auth, browser, checkin, session, store
+from .api import NotDownloadable, PlayApi, PlayApiError
 from .device import DEFAULT_PROFILE, Profile
 
 
@@ -44,6 +44,17 @@ def _play_api(*, fresh: bool = False) -> PlayApi:
     if not sess or sess.get("gsfId") != device["gsfId"]:  # 기기를 새로 등록했으면 세션도 새로
         sess = _new_session(account, device)
     return PlayApi(device, sess)
+
+
+def _with_api(call):
+    """call(api) 실행. Play 토큰 만료(401)면 저장된 AAS 로 세션을 새로 만들어 한 번 재시도."""
+    try:
+        return call(_play_api())
+    except PlayApiError as e:
+        if e.status != 401:
+            raise
+        print("Play 토큰이 만료돼 세션을 새로 만듭니다.")
+        return call(_play_api(fresh=True))
 
 
 def cmd_login(args) -> int:
@@ -94,13 +105,7 @@ def cmd_session(args) -> int:
 
 
 def cmd_details(args) -> int:
-    try:
-        doc = _play_api().details(args.package)
-    except PlayApiError as e:
-        if e.status != 401:
-            raise
-        print("Play 토큰이 만료돼 세션을 새로 만듭니다.")
-        doc = _play_api(fresh=True).details(args.package)
+    doc = _with_api(lambda api: api.details(args.package))
     if not doc.docid:
         print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
         return 1
@@ -112,6 +117,23 @@ def cmd_details(args) -> int:
     print(f"업데이트 {a.uploadDate}")
     print(f"설치수   {a.numDownloads}")  # 값에 "다운로드 …회 이상" 문구가 포함돼 옴
     print(f"크기     {a.installationSize / 1024 / 1024:.1f} MB")
+    return 0
+
+
+def cmd_cert(args) -> int:
+    doc, data = _with_api(lambda api: api.app_delivery(args.package))
+    a = doc.details.appDetails
+    print(f"{doc.title} {a.versionString} ({a.versionCode}) — base.apk {data.downloadSize / 1024 / 1024:.1f} MB,"
+          f" split {len(data.split)}개")
+
+    reader = apksig.HttpRangeReader(data.downloadUrl,
+                                    {c.name: c.value for c in data.downloadAuthCookie},
+                                    size=data.downloadSize)
+    signers = apksig.read_signers(reader)
+    print(f"서명 블록만 읽음: Range {reader.requests}회, {reader.fetched / 1024:.1f} KB")
+    for s in signers:
+        print(f"  {s.scheme:<4} SHA-1   {s.sha1}")
+        print(f"       SHA-256 {s.sha256}")
     return 0
 
 
@@ -140,11 +162,15 @@ def main(argv=None) -> int:
     de.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
     de.set_defaults(func=cmd_details)
 
+    ce = sub.add_parser("cert", help="정식 APK 서명 인증서 해시 (APK 끝부분만 받아 추출)")
+    ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    ce.set_defaults(func=cmd_cert)
+
     args = p.parse_args(argv)
     try:
         return args.func(args)
     except (_Missing, browser.LoginError, auth.AuthError, checkin.CheckinError, PlayApiError,
-            ValueError) as e:
+            NotDownloadable, apksig.SignatureError, ValueError) as e:
         print(f"실패: {e}", file=sys.stderr)
         return 1
 
