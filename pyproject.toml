@@ -1,0 +1,19 @@
+[project]
+name = "dottakstore"
+version = "0.1.0"
+description = "Google Play 스토어 비공식 클라이언트 (연구용)"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32",
+    "websocket-client>=1.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
