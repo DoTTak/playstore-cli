@@ -175,13 +175,23 @@ message DeliveryResponse {
   optional AndroidAppDeliveryData appDeliveryData = 2;
 }
 
+// sha1/sha256 은 파일 해시의 base64url(패딩 없음)이다 (YouTube delivery 로 확인).
 message AndroidAppDeliveryData {
   optional int64 downloadSize = 1;
   optional string sha1 = 2;
   optional string downloadUrl = 3;           // base APK
+  repeated AppFileMetadata additionalFile = 4;  // 확장 파일(OBB)
   repeated HttpCookie downloadAuthCookie = 5;
-  repeated Split split = 15;                 // split APK (config.arm64_v8a 등)
+  repeated Split split = 15;                 // split APK (config.arm64_v8a, 기능 모듈 등)
   optional string sha256 = 19;
+}
+
+message AppFileMetadata {
+  optional int32 fileType = 1;               // 0 = main, 1 = patch
+  optional int32 versionCode = 2;
+  optional int64 size = 3;
+  optional string downloadUrl = 4;
+  optional string sha1 = 8;
 }
 
 message HttpCookie {

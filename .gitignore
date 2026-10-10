@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
+
+# 다운로드한 APK
+/downloads/

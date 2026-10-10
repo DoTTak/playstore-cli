@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from . import apksig, auth, browser, checkin, session, store
+import requests
+
+from . import apksig, auth, browser, checkin, download, session, store
 from .api import NotDownloadable, PlayApi, PlayApiError, certificate_hashes
 from .device import DEFAULT_PROFILE, Profile
 
@@ -152,6 +155,46 @@ def cmd_cert(args) -> int:
     return 0 if same else 1
 
 
+def _mb(n: int) -> str:
+    return f"{n / 1024 / 1024:.1f} MB"
+
+
+def _progress_line(prefix: str):
+    """터미널이면 같은 줄에 진행률을 덮어쓴다 (1% 단위)."""
+    if not sys.stdout.isatty():
+        return None
+    last = -1
+
+    def show(done: int, total: int):
+        nonlocal last
+        pct = done * 100 // total if total else 0
+        if pct != last:
+            last = pct
+            print(f"\r{prefix}  {pct:3d}%", end="", flush=True)
+    return show
+
+
+def cmd_download(args) -> int:
+    doc, data = _with_api(lambda api: api.app_delivery(args.package))
+    a = doc.details.appDetails
+    out = Path(args.out) / f"{args.package}-{a.versionCode}"
+    files = download.play_files(args.package, data)
+    print(f"{doc.title} {a.versionString} ({a.versionCode}) — 파일 {len(files)}개, "
+          f"{_mb(sum(f.size for f in files))} → {out}")
+
+    downloader = download.Downloader(data)
+    for i, f in enumerate(files, 1):
+        prefix = f"  [{i}/{len(files)}] {f.name} ({_mb(f.size)})"
+        fetched = downloader.fetch(f, out, progress=_progress_line(prefix))
+        print(f"\r{prefix}  {'OK' if fetched else '이미 있음'}  ")
+
+    apks = [f.name for f in files if f.name.endswith(".apk")]
+    print(f"설치: adb install-multiple {out}/*.apk" if len(apks) > 1 else f"설치: adb install {out}/base.apk")
+    if len(apks) < len(files):
+        print(f"OBB 는 기기의 /sdcard/Android/obb/{args.package}/ 에 넣으세요.")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="playstore")
     sub = p.add_subparsers(dest="command", required=True)
@@ -183,11 +226,18 @@ def main(argv=None) -> int:
                     help="APK 끝부분을 받아 서명 블록과 대조 (무료 앱만, 보관함에 없으면 purchase 함)")
     ce.set_defaults(func=cmd_cert)
 
+    dl = sub.add_parser("download", help="APK 다운로드 (base + split + OBB, 무료 앱만)")
+    dl.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    dl.add_argument("-o", "--out", default="downloads",
+                    help="저장 위치. 그 아래 <패키지>-<versionCode>/ 에 받는다 (기본 downloads)")
+    dl.set_defaults(func=cmd_download)
+
     args = p.parse_args(argv)
     try:
         return args.func(args)
     except (_Missing, browser.LoginError, auth.AuthError, checkin.CheckinError, PlayApiError,
-            NotDownloadable, apksig.SignatureError, ValueError) as e:
+            NotDownloadable, apksig.SignatureError, download.DownloadError,
+            requests.RequestException, ValueError) as e:
         print(f"실패: {e}", file=sys.stderr)
         return 1
 
