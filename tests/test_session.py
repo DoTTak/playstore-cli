@@ -2,12 +2,12 @@ from urllib.parse import parse_qs
 
 import pytest
 
-from playstore import api, auth, session
-from playstore import googleplay_pb2 as pb
-from playstore.api import PlayApi, PlayApiError
+from playstore_cli import api, auth, session
+from playstore_cli import googleplay_pb2 as pb
+from playstore_cli.api import PlayApi, PlayApiError
 
 ACCOUNT = {"email": "a@b.com", "aasToken": "aas_et/XYZ"}
-DEVICE = {"profile": "pixel_9a", "locale": "ko_KR", "timezone": "Asia/Seoul",
+DEVICE = {"profile": "test_device", "locale": "ko_KR", "timezone": "Asia/Seoul",
           "gsfId": "3a1b2c3d4e5f6071", "deviceCheckinConsistencyToken": "consistency"}
 SESSION = {"gsfId": DEVICE["gsfId"], "authToken": "play-token",
            "deviceConfigToken": "cfg-token", "dfeCookie": "dfe-cookie"}

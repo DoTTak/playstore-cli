@@ -11,27 +11,38 @@ It calls the internal API (fdfe) that the Play Store app uses, so you can:
 - look up the official signing certificate hashes (SHA-1, SHA-256), and compare them with the APK's signing block
 - download APKs (base and split APKs, OBBs, older versions)
 
-## Requirements
+## Installation
 
-- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`
-- A Google account. A separate account for research is recommended (see [Caveats](#caveats))
+Requires Python 3.12+. Install it as a command-line tool with [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/):
 
 ```bash
-uv sync
+uv tool install playstore-cli
+# or
+pipx install playstore-cli
 ```
+
+From a clone of this repository:
+
+```bash
+uv tool install .
+```
+
+You also need:
+
+- A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`
+- A Google account. A separate account for research is recommended (see [Caveats](#caveats))
 
 ## Quick start
 
 ```bash
-uv run python -m playstore login                               # 1. Google sign-in → AAS token
-uv run python -m playstore checkin                             # 2. register a virtual device → gsfId
-uv run python -m playstore search youtube                      # find package names
-uv run python -m playstore top Finance                         # top chart of a category (top free)
-uv run python -m playstore details com.google.android.youtube  # details and permissions
-uv run python -m playstore reviews com.google.android.youtube  # ratings and reviews
-uv run python -m playstore cert com.google.android.youtube     # official signing certificate hashes
-uv run python -m playstore download com.google.android.youtube # download the APKs
+playstore-cli login                                # 1. Google sign-in → AAS token
+playstore-cli checkin                              # 2. register a virtual device → gsfId
+playstore-cli search youtube                       # find package names
+playstore-cli top Finance                          # top chart of a category (top free)
+playstore-cli details com.google.android.youtube   # details and permissions
+playstore-cli reviews com.google.android.youtube   # ratings and reviews
+playstore-cli cert com.google.android.youtube      # official signing certificate hashes
+playstore-cli download com.google.android.youtube  # download the APKs
 ```
 
 `login` and `checkin` are needed only once. A Play session is created whenever needed, and when the Play token expires (401) it is rebuilt from the saved AAS token and the request is retried.
@@ -42,6 +53,7 @@ uv run python -m playstore download com.google.android.youtube # download the AP
 |---|---|
 | `login` | Sign in to a Google account → save an AAS token |
 | `checkin` | Register a virtual device → save its gsfId |
+| `profile` | Generate a device profile from an Android device or emulator over adb |
 | `session` | Create a Play session (normally created automatically) |
 | `search <query>` | Search apps |
 | `top [category]` | Top charts by category (top free/paid, top grossing, trending) |
@@ -54,7 +66,7 @@ uv run python -m playstore download com.google.android.youtube # download the AP
 ### login
 
 ```bash
-uv run python -m playstore login [--email EMAIL] [--oauth-token TOKEN] [--timeout 600]
+playstore-cli login [--email EMAIL] [--oauth-token TOKEN] [--timeout 600]
 ```
 
 - Opens the Google "Add account" page (`accounts.google.com/EmbeddedSetup`) in a browser window. Once you have signed in (including 2-step verification), it reads the `oauth_token` cookie and exchanges it for a long-lived AAS token. The window closes by itself.
@@ -64,37 +76,57 @@ uv run python -m playstore login [--email EMAIL] [--oauth-token TOKEN] [--timeou
 ### checkin
 
 ```bash
-uv run python -m playstore checkin [--profile pixel_9a] [--locale en_US] [--timezone UTC] [--force]
+playstore-cli checkin [--profile NAME_OR_PATH] [--locale en_US] [--timezone UTC] [--force]
 ```
 
-- Registers a virtual device (Pixel 9a, Android 15 / SDK 35 by default) with Google and gets its gsfId. All later Play requests are made as this device.
+- Registers a virtual device with Google and gets its gsfId. All later Play requests are made as this device.
+- `--profile` is the device it pretends to be: a profile name (your own profiles in `~/.config/playstore-cli/profiles/` come first, then the bundled ones) or a path to a `.properties` file. The default, `galaxy_s10e`, is a Samsung Galaxy S10e (SM-G970N) on Android 12, generated with [profile](#profile) and without operator codes. Play serves apps and builds that fit the profile's Android version, so make a profile of a newer phone for apps that need a newer Android.
 - Play answers in the device locale (app titles, install counts, category names). Prices are in the currency of the account's country.
 - Every checkin adds a new device to the account, so an already registered device is reused. Pass `--force` to register a new one.
+
+### profile
+
+```bash
+playstore-cli profile [-s SERIAL] [--name NAME] [-o FILE]
+```
+
+```
+Reading the device over adb...
+Google sdk_gphone64_arm64, Android 15 (SDK 35)
+  google/sdk_gphone64_arm64/emu64a:15/AE3A.240806.043/12960925:userdebug/dev-keys
+Saved: ~/.config/playstore-cli/profiles/emu64a.properties
+Use it: playstore-cli checkin --profile emu64a --force
+```
+
+- Reads a device profile from an Android phone or emulator connected over [adb](https://developer.android.com/tools/adb) (USB debugging on): build properties (`getprop`), the screen, input, features, shared libraries and GL extensions (`am get-config --device`, the same data the Play Store uploads), the Google Play services and Play Store versions, and the system locales (from the resources of `framework-res.apk`).
+- Saves it as `~/.config/playstore-cli/profiles/<Build.DEVICE>.properties`, ready for `checkin --profile`.
+- The device decides which APK variants Play serves. Emulator images without Google Play are test-key builds (`userdebug/dev-keys`), and Play gives them differently signed variants of some apps, Google's own in particular (see [cert](#cert)). Use a real phone, or an emulator image with Google Play, to get the variants regular phones get.
+- If the device has no real Play Store (emulator images without Google Play ship a stub), a current Play Store version is filled in, because Play rejects very old ones.
 
 ### search
 
 ```bash
-uv run python -m playstore search youtube [-n 20]
+playstore-cli search youtube [-n 20]
 ```
 
 ```
   1. YouTube — Google LLC
-     com.google.android.youtube · 21.40.161 · 10,000,000,000+ downloads · Free
-  2. Messenger — Meta Platforms, Inc.
-     com.facebook.orca · 582.0.0.61.92 · 5,000,000,000+ downloads · Free
+     com.google.android.youtube · 21.32.4 · 10,000,000,000+ downloads · Free
+  2. LINE: Calls & Messages — LINE (LY Corporation)
+     jp.naver.line.android · 26.15.1 · 1,000,000,000+ downloads · Free
 ```
 
-- Pages through the results and collects up to `-n` apps without duplicates, until Play stops returning more ("youtube" ends at 508).
+- Pages through the results and collects up to `-n` apps without duplicates, until Play stops returning more ("youtube" ends at 516).
 - Play returns popular apps even for a query with no match.
 
 ### top
 
 ```bash
-uv run python -m playstore top [category] [-c free|paid|grossing|trending] [-n 20]
+playstore-cli top [category] [-c free|paid|grossing|trending] [-n 20]
 ```
 
 ```
-$ uv run python -m playstore top GAME -c paid -n 3
+$ playstore-cli top GAME -c paid -n 3
 GAME Top paid
   1. Dungeon Merge! — Brilbox
      com.brilbox.dungeonmerge · 1.0.41 · ₩70
@@ -106,13 +138,13 @@ GAME Top paid
 
 - The category is an ID (`FINANCE`, `GAME_PUZZLE`; any case if it has an underscore) or a name as `categories` prints it (`Finance`, `Puzzle`, `Health & Fitness`; any case). Without one, the chart covers all apps (`APPLICATION`). Names shared by several categories (`Sports` = `SPORTS`, `GAME_SPORTS`) need the ID.
 - `-c`: `free` top free (default), `paid` top paid, `grossing` top grossing, `trending` trending.
-- Ranks come 7 at a time and are collected up to `-n`. Play goes to about rank 200 (around 5 seconds for 200). Charts with few apps are shorter (top paid in Finance has 1).
+- Ranks come 7 at a time and are collected up to `-n`. Play goes to about rank 200 (Finance top free ends at 197, in about 5 seconds). Charts with few apps are shorter (top paid in Finance has 1).
 - Top chart responses carry no install count, so it is left out of the output.
 
 ### categories
 
 ```bash
-uv run python -m playstore categories
+playstore-cli categories
 ```
 
 ```
@@ -131,37 +163,37 @@ GAME                     Games
 ### details
 
 ```bash
-uv run python -m playstore details com.google.android.youtube
+playstore-cli details com.google.android.youtube
 ```
 
 ```
 Title        YouTube
 Package      com.google.android.youtube
-Version      21.40.161 (1561301413)
+Version      21.32.4 (1561190505)
 Developer    Google LLC
-Updated      Oct 1, 2026
+Updated      Aug 10, 2026
 Installs     10,000,000,000+ downloads
-Size         139.1 MB
+Size         137.3 MB
 Permissions  51
   android.permission.ACCESS_ADSERVICES_AD_ID
   ...
 ```
 
-The permission list is not the manifest as-is but **a list Play adapts to this device**: permissions whose `maxSdkVersion` is below the device SDK are dropped, and implied permissions are added. YouTube, for example, has 50 in its manifest, plus `READ_EXTERNAL_STORAGE`, implied by `WRITE_EXTERNAL_STORAGE`, for 51.
+The permission list is not the manifest as-is but **a list Play adapts to this device**: permissions whose `maxSdkVersion` is below the device SDK are dropped, and implied permissions are added. YouTube 21.40.161 for an Android 15 profile, for example, has 50 in its manifest, plus `READ_EXTERNAL_STORAGE`, implied by `WRITE_EXTERNAL_STORAGE`, for 51.
 
 ### reviews
 
 ```bash
-uv run python -m playstore reviews com.google.android.youtube [-n 20] [-s relevant|newest] [-r 1-5]
+playstore-cli reviews com.google.android.youtube [-n 20] [-s relevant|newest] [-r 1-5]
 ```
 
 ```
-YouTube — rated 2.9 (160,324,552 ratings)
-  ★5  37%  59,074,443
-  ★4   7%  11,500,112
-  ★3   7%  11,071,837
-  ★2   6%  9,385,479
-  ★1  43%  69,292,286
+YouTube — rated 2.9 (160,325,046 ratings)
+  ★5  37%  59,074,625
+  ★4   7%  11,500,147
+  ★3   7%  11,071,871
+  ★2   6%  9,385,508
+  ★1  43%  69,292,500
 
 20 reviews (most relevant)
 
@@ -179,7 +211,7 @@ YouTube — rated 2.9 (160,324,552 ratings)
 ### cert
 
 ```bash
-uv run python -m playstore cert com.google.android.youtube [--apk]
+playstore-cli cert com.google.android.youtube [--apk]
 ```
 
 | | `cert` | `cert --apk` |
@@ -191,30 +223,32 @@ uv run python -m playstore cert com.google.android.youtube [--apk]
 
 - `cert` is enough when you only need the signing hashes. `--apk` checks the hashes Play reports against the file it actually distributes.
 - The hashes are **hashes of the certificate (DER)**, the same as the certificate digest from Android's `PackageManager` or `apksigner`.
-- **Some apps have several certificates, and the details list doesn't necessarily match the APK's signers.** YouTube 21.40.161:
+- **The details list covers every APK variant Play serves, so it can hold several certificates, and the APK a device gets is signed by only some of them.** YouTube (21.40.161 and 21.32.4):
 
   | Source | Certificate SHA-1 |
   |---|---|
   | details `certificateSet` | `4ba713df…`, `24bb24c0…` |
-  | APK v3 signer (Android 7-12, SDK 24-32) | `24bb24c0…` |
-  | APK v3.1 signer (Android 13+, SDK 33+) | `f8456b1d…` (key rotation: `24bb24c0…` → `f8456b1d…`) |
+  | APK for a release-keys device: v3 signer (Android 7-12, SDK 24-32) | `24bb24c0…` |
+  | the same APK: v3.1 signer (Android 13+, SDK 33+) | `f8456b1d…` (key rotation: `24bb24c0…` → `f8456b1d…`) |
+  | APK for a test-keys device (`userdebug/dev-keys` emulator image): v3 signer | `4ba713df…` (the AOSP test key, `CN=Android, O=Android`) |
+  | the same APK: v3.1 signer | `b971642d…` |
 
-  Devices on Android 13 or later use the rotated key (`f8456b1d…`), which is not in the details list. Conversely, `4ba713df…`, which only details lists, is nowhere in the APK's signers or lineage. To compare with what a device reports, check the `--apk` result as well.
+  Devices on Android 13 or later use the rotated keys, which are not in the details list. To compare with what a device reports, check the `--apk` result as well, made with a profile of the same kind of device.
 - `--apk` does not support APKs signed with v1 (JAR) only.
 
 ### download
 
 ```bash
-uv run python -m playstore download com.google.android.youtube [-v VERSION_CODE] [-o downloads]
+playstore-cli download com.google.android.youtube [-v VERSION_CODE] [-o downloads]
 ```
 
 ```
-YouTube 21.40.161 (1561301413) — 4 files, 139.1 MB → downloads/com.google.android.youtube-1561301413
-  [1/4] base.apk (62.1 MB)  OK
-  [2/4] split_config.arm64_v8a.apk (74.0 MB)  OK
+YouTube 21.32.4 (1561190505) — 4 files, 137.3 MB → downloads/com.google.android.youtube-1561190505
+  [1/4] base.apk (60.9 MB)  OK
+  [2/4] split_config.arm64_v8a.apk (73.3 MB)  OK
   [3/4] split_config.en.apk (0.3 MB)  OK
   [4/4] split_config.xxhdpi.apk (2.7 MB)  OK
-Install: adb install-multiple downloads/com.google.android.youtube-1561301413/*.apk
+Install: adb install-multiple downloads/com.google.android.youtube-1561190505/*.apk
 ```
 
 - Downloads the base APK, every split APK and the OBBs into `downloads/<package>-<versionCode>/`.
@@ -231,6 +265,7 @@ Install: adb install-multiple downloads/com.google.android.youtube-1561301413/*.
 | `~/.config/playstore-cli/device.json` | Device profile, gsfId, checkin tokens |
 | `~/.config/playstore-cli/session.json` | Play token, deviceConfigToken, dfeCookie |
 | `~/.config/playstore-cli/chrome-profile/` | Browser profile for the login |
+| `~/.config/playstore-cli/profiles/` | Your own device profiles (from `playstore-cli profile`) |
 | `downloads/` | Downloaded APKs (git-ignored) |
 
 Set the `PLAYSTORE_HOME` environment variable to use another directory than `~/.config/playstore-cli`.
@@ -238,11 +273,12 @@ Set the `PLAYSTORE_HOME` environment variable to use another directory than `~/.
 ## Layout
 
 ```
-playstore/
+playstore_cli/
   __main__.py        CLI
   browser.py         login step 1: get the oauth_token cookie through Chrome (DevTools protocol)
   auth.py            android.clients.google.com/auth: oauth_token → AAS → ac2dm / Play tokens
   device.py          device profile (.properties) → User-Agent, checkin request, device configuration
+  profile_dump.py    device profile from a device over adb (getprop, am get-config, framework-res.apk)
   checkin.py         virtual device registration → gsfId
   session.py         Play token → device config upload → terms of service (toc)
   api.py             fdfe API: details, search, top_chart, categories, reviews, purchase, delivery
@@ -257,20 +293,23 @@ tests/               tests against local HTTP stand-ins (no requests to Google)
 ## Development
 
 ```bash
+uv sync                      # create .venv with the project and the dev dependencies
+uv run playstore-cli --help  # run the CLI from the working tree
 uv run pytest
+uv build                     # build the sdist and wheel into dist/
 ```
 
 After changing the proto, regenerate it from the repository root (protoc 28.x):
 
 ```bash
-protoc -I. --python_out=. playstore/googleplay.proto
+protoc -I. --python_out=. playstore_cli/googleplay.proto
 ```
 
 ## Play API behavior confirmed against real responses
 
 Things that are missing from, or differ from, the reference implementations (gpapi, Aurora):
 
-- **Signing hashes:** field 22 of `AppDetails` in the details response (`certificateSet`) holds each certificate's SHA-1 and SHA-256, base64url-encoded without padding. Paid apps and apps incompatible with the device have it too. It doesn't necessarily match the APK's signers, though (see [cert](#cert)).
+- **Signing hashes:** field 22 of `AppDetails` in the details response (`certificateSet`) holds each certificate's SHA-1 and SHA-256, base64url-encoded without padding. Paid apps and apps incompatible with the device have it too. It lists the signers of every variant Play serves (release-keys and test-keys devices get differently signed APKs of some apps), not only those of the APK the device gets (see [cert](#cert)).
 - **delivery hashes:** the file `sha1`/`sha256` in a delivery response are base64url without padding too.
 - **Missing versions:** asking delivery for a versionCode Play doesn't have returns no error, only an empty `downloadUrl`.
 - **Search User-Agent:** sending `search` with the current Play User-Agent returns empty result clusters, so search uses a legacy User-Agent. Results continue along two paths: a cluster's next results (`getCluster?…`) and the next clusters (`searchList?…`).
@@ -294,4 +333,6 @@ Things that are missing from, or differ from, the reference implementations (gpa
 - [gpsoauth](https://github.com/simon-weber/gpsoauth): `/auth` TLS settings
 - [APK Signature Scheme v2](https://source.android.com/docs/security/features/apksigning/v2)
 
-`playstore/profiles/pixel_9a.properties` is a device profile from The Calyx Institute, licensed GPL-3.0-or-later.
+## License
+
+[Apache-2.0](LICENSE)

@@ -181,7 +181,7 @@ wheels = [
 [[package]]
 name = "playstore-cli"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "protobuf" },
     { name = "requests" },

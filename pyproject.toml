@@ -2,18 +2,49 @@
 name = "playstore-cli"
 version = "0.1.0"
 description = "Unofficial Google Play Store client (for research and learning)"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "DoTTak" }]
 requires-python = ">=3.12"
+keywords = ["google-play", "play-store", "android", "apk", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
 dependencies = [
     "protobuf>=5.28.3,<6",
     "requests>=2.32",
     "websocket-client>=1.8",
 ]
 
+[project.scripts]
+playstore-cli = "playstore_cli.__main__:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+# Metadata 2.4 (license expressions): hatchling's newer 2.5 isn't accepted by twine yet
+[tool.hatch.build.targets.wheel]
+packages = ["playstore_cli"]
+core-metadata-version = "2.4"
+
+[tool.hatch.build.targets.sdist]
+include = ["playstore_cli", "tests", "README.md", "LICENSE"]
+core-metadata-version = "2.4"
+
 [dependency-groups]
 dev = ["pytest>=8"]
-
-[tool.uv]
-package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

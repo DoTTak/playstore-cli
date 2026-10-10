@@ -6,3 +6,6 @@ __pycache__/
 
 # Downloaded APKs
 /downloads/
+
+# Build output
+/dist/

@@ -1,7 +1,7 @@
 """Virtual device profile: the device information sent with checkin and Play API requests.
 
-Profiles use Aurora Store's device .properties format as-is (playstore/profiles/).
-pixel_9a.properties is an Aurora/Calyx profile (GPL-3.0-or-later).
+Profiles use the .properties format of Aurora Store's device profiles. Bundled profiles live in
+playstore_cli/profiles/; your own (for example from `playstore-cli profile`) in PLAYSTORE_HOME/profiles/.
 """
 from __future__ import annotations
 
@@ -10,9 +10,15 @@ from pathlib import Path
 from urllib.parse import quote
 
 from . import googleplay_pb2 as pb
+from . import store
 
 PROFILES_DIR = Path(__file__).parent / "profiles"
-DEFAULT_PROFILE = "pixel_9a"
+DEFAULT_PROFILE = "galaxy_s10e"
+
+
+def user_profiles_dir() -> Path:
+    """Profiles you add yourself (for example with `playstore-cli profile`): PLAYSTORE_HOME/profiles."""
+    return store.home() / "profiles"
 
 
 def parse_properties(text: str) -> dict[str, str]:
@@ -28,7 +34,16 @@ def parse_properties(text: str) -> dict[str, str]:
 
 
 def available_profiles() -> list[str]:
-    return sorted(p.stem for p in PROFILES_DIR.glob("*.properties"))
+    return sorted({p.stem for d in (user_profiles_dir(), PROFILES_DIR) for p in d.glob("*.properties")})
+
+
+def find_profile(name: str) -> Path | None:
+    """A .properties path as given, else <name>.properties in the user profiles, then the bundled ones."""
+    given = Path(name).expanduser()
+    if given.suffix == ".properties" and given.is_file():
+        return given.resolve()
+    return next((p for d in (user_profiles_dir(), PROFILES_DIR)
+                 if (p := d / f"{name}.properties").is_file()), None)
 
 
 class Profile:
@@ -38,8 +53,9 @@ class Profile:
 
     @classmethod
     def load(cls, name: str = DEFAULT_PROFILE) -> Profile:
-        path = PROFILES_DIR / f"{name}.properties"
-        if not path.exists():
+        """Load by name (user profiles first, then bundled) or from a .properties path."""
+        path = find_profile(name)
+        if not path:
             raise ValueError(f"no such profile: {name} (available: {', '.join(available_profiles())})")
         return cls(name, parse_properties(path.read_text()))
 

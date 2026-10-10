@@ -1,8 +1,25 @@
+import shutil
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+
+TEST_PROFILE = Path(__file__).parent / "data" / "test_device.properties"
+
+
+@pytest.fixture(autouse=True)
+def playstore_home(tmp_path_factory, monkeypatch):
+    """Every test gets its own PLAYSTORE_HOME, with the fictional test_device profile in profiles/.
+
+    It is kept out of tmp_path so tests that inspect tmp_path see only their own files.
+    """
+    home = tmp_path_factory.mktemp("playstore-home")
+    (home / "profiles").mkdir()
+    shutil.copy(TEST_PROFILE, home / "profiles")
+    monkeypatch.setenv("PLAYSTORE_HOME", str(home))
+    return home
 
 
 class FakeServer:

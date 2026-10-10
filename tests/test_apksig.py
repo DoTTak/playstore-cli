@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from playstore.apksig import BLOCK_MAGIC, FileReader, HttpRangeReader, SignatureError, read_signers
+from playstore_cli.apksig import BLOCK_MAGIC, FileReader, HttpRangeReader, SignatureError, read_signers
 
 V2, V3, STAMP = 0x7109871A, 0xF05368C0, 0x6DFF800D
 

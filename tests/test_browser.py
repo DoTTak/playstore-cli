@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from playstore import browser
+from playstore_cli import browser
 
 pytestmark = pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome not found")
 

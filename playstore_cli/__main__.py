@@ -1,4 +1,4 @@
-"""uv run python -m playstore <command>"""
+"""playstore-cli <command> (or: python -m playstore_cli <command>)"""
 from __future__ import annotations
 
 import argparse
@@ -9,9 +9,9 @@ from pathlib import Path
 
 import requests
 
-from . import apksig, auth, browser, checkin, download, session, store
+from . import apksig, auth, browser, checkin, download, profile_dump, session, store
 from .api import REVIEW_SORT, TOP_CHARTS, NotDownloadable, PlayApi, PlayApiError, certificate_hashes
-from .device import DEFAULT_PROFILE, Profile
+from .device import DEFAULT_PROFILE, Profile, available_profiles, user_profiles_dir
 
 
 class _Missing(Exception):
@@ -92,6 +92,8 @@ def cmd_checkin(args) -> int:
         return 0
 
     profile = Profile.load(args.profile)
+    if args.profile.endswith(".properties"):  # keep a path usable from any working directory
+        profile.name = str(Path(args.profile).expanduser().resolve())
     print(f"Exchanging for an ac2dm token... ({account['email']})")
     ac2dm = auth.exchange_aas_token(account["email"], account["aasToken"], "ac2dm")
     print(f"Checking in... ({profile.props['UserReadableName']}, {args.locale}, {args.timezone})")
@@ -101,6 +103,20 @@ def cmd_checkin(args) -> int:
                               "timezone": args.timezone, **result})
     print(f"gsfId: {result['gsfId']}")
     print(f"Saved: {path}")
+    return 0
+
+
+def cmd_profile(args) -> int:
+    print("Reading the device over adb...")
+    props = profile_dump.dump(profile_dump.Adb(args.serial), operator=not args.no_operator)
+    name = args.name or props["Build.DEVICE"]
+    path = Path(args.out) if args.out else user_profiles_dir() / f"{name}.properties"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(profile_dump.to_properties(props))
+    print(f"{props['UserReadableName']}, Android {props['Build.VERSION.RELEASE']} (SDK {props['Build.VERSION.SDK_INT']})")
+    print(f"  {props['Build.FINGERPRINT']}")
+    print(f"Saved: {path}")
+    print(f"Use it: playstore-cli checkin --profile {path if args.out else name} --force")
     return 0
 
 
@@ -323,7 +339,7 @@ def cmd_download(args) -> int:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="playstore")
+    p = argparse.ArgumentParser(prog="playstore-cli")
     sub = p.add_subparsers(dest="command", required=True)
 
     login = sub.add_parser("login", help="sign in to a Google account → save an AAS token")
@@ -334,11 +350,21 @@ def main(argv=None) -> int:
     login.set_defaults(func=cmd_login)
 
     ci = sub.add_parser("checkin", help="register a virtual device → save its gsfId")
-    ci.add_argument("--profile", default=DEFAULT_PROFILE, help=f"device profile (default {DEFAULT_PROFILE})")
+    ci.add_argument("--profile", default=DEFAULT_PROFILE,
+                    help=f"device profile: a name ({', '.join(available_profiles())}) or a .properties path "
+                         f"(default {DEFAULT_PROFILE})")
     ci.add_argument("--locale", default="en_US", help="device locale; Play answers in its language (default en_US)")
     ci.add_argument("--timezone", default="UTC", help="device time zone (default UTC)")
     ci.add_argument("--force", action="store_true", help="register a new device even if one is already registered")
     ci.set_defaults(func=cmd_checkin)
+
+    pf = sub.add_parser("profile", help="generate a device profile from an Android device or emulator over adb")
+    pf.add_argument("-s", "--serial", help="adb serial of the device (when several are connected)")
+    pf.add_argument("--name", help="profile name (default: the device's Build.DEVICE)")
+    pf.add_argument("--no-operator", action="store_true",
+                    help="leave out the mobile operator codes (MCC/MNC), e.g. for a profile you share")
+    pf.add_argument("-o", "--out", help=f"write to this file instead of {user_profiles_dir()}/<name>.properties")
+    pf.set_defaults(func=cmd_profile)
 
     se = sub.add_parser("session", help="create a Play session (Play token, device config upload, terms of service)")
     se.set_defaults(func=cmd_session)
@@ -390,7 +416,7 @@ def main(argv=None) -> int:
     try:
         return args.func(args)
     except (_Missing, browser.LoginError, auth.AuthError, checkin.CheckinError, PlayApiError,
-            NotDownloadable, apksig.SignatureError, download.DownloadError,
+            NotDownloadable, apksig.SignatureError, download.DownloadError, profile_dump.ProfileError,
             requests.RequestException, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

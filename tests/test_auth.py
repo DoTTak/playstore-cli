@@ -3,7 +3,7 @@ from urllib.parse import parse_qs
 
 import pytest
 
-from playstore import auth
+from playstore_cli import auth
 
 
 @pytest.fixture

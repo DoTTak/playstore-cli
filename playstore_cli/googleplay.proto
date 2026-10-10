@@ -1,7 +1,7 @@
 // Google Play and checkin protocol messages, keeping only what each step needs.
 // Field numbers were recovered from the googleplay_pb2 descriptor of gpapi 0.4.4.
 //
-// Regenerate (from the repository root):  protoc -I. --python_out=. playstore/googleplay.proto
+// Regenerate (from the repository root):  protoc -I. --python_out=. playstore_cli/googleplay.proto
 syntax = "proto2";
 
 package playstore;
@@ -224,10 +224,12 @@ message AppDetails {
 }
 
 // Signing certificate hashes, base64url-encoded (no padding).
-// Sent for paid apps too, without a purchase. There can be several certificates, and they don't necessarily
-// match the APK's signers. YouTube 21.40.161:
-//   details = 4ba713df…, 24bb24c0… / APK v3 (SDK 24-32) = 24bb24c0…, v3.1 (SDK 33+, rotated key) = f8456b1d…
-//   (matches apksigner. 4ba713df… is nowhere in the APK's signers or lineage)
+// Sent for paid apps too, without a purchase. It lists the signers of every APK variant Play serves, so an
+// app can have several, and they don't necessarily match the APK a given device gets. YouTube 21.40.161:
+//   details = 4ba713df…, 24bb24c0…
+//   release-keys device: v3 (SDK 24-32) = 24bb24c0…, v3.1 (SDK 33+, rotated key) = f8456b1d…
+//   test-keys device (userdebug/dev-keys emulator image): v3 = 4ba713df… (AOSP test key), v3.1 = b971642d…
+//   (matches apksigner)
 message CertificateSet {
   optional string sha1 = 1;
   optional string sha256 = 2;

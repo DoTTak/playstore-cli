@@ -3,9 +3,9 @@ import hashlib
 
 import pytest
 
-from playstore import download
-from playstore import googleplay_pb2 as pb
-from playstore.download import Downloader, DownloadError, PlayFile
+from playstore_cli import download
+from playstore_cli import googleplay_pb2 as pb
+from playstore_cli.download import Downloader, DownloadError, PlayFile
 
 BASE = b"base-apk-bytes" * 1000
 SPLIT = b"split-apk-bytes"

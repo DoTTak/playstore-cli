@@ -1,6 +1,6 @@
 import stat
 
-from playstore import store
+from playstore_cli import store
 
 
 def test_save_and_load_account(tmp_path, monkeypatch):

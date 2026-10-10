@@ -1,6 +1,6 @@
 import pytest
 
-from playstore.__main__ import _category_id
+from playstore_cli.__main__ import _category_id
 
 
 class FakeApi:
