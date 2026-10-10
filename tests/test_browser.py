@@ -5,8 +5,6 @@ import pytest
 
 from playstore_cli import browser
 
-pytestmark = pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome not found")
-
 
 @pytest.fixture
 def fake_setup_page():
@@ -31,7 +29,25 @@ def fake_setup_page():
     srv.shutdown()
 
 
+@pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome not found")
 def test_capture_oauth_token(tmp_path, fake_setup_page):
     email, token = browser.capture_oauth_token(
         tmp_path / "profile", url=fake_setup_page, headless=True, timeout=30)
     assert (email, token) == ("burner@example.com", "oauth2_4/fake-token")
+
+
+def test_find_chrome_in_windows_install_dirs(tmp_path, monkeypatch):
+    monkeypatch.setattr(browser, "CHROME_CANDIDATES", [])
+    for root in browser.WINDOWS_ROOTS:
+        monkeypatch.setenv(root, str(tmp_path / root))
+    edge = tmp_path / "PROGRAMFILES(X86)" / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+    chrome = tmp_path / "LOCALAPPDATA" / "Google" / "Chrome" / "Application" / "chrome.exe"
+    for exe in (edge, chrome):
+        exe.parent.mkdir(parents=True)
+        exe.touch()
+
+    assert browser.find_chrome() == str(chrome)  # Chrome first, wherever it is installed
+    chrome.unlink()
+    assert browser.find_chrome() == str(edge)
+    edge.unlink()
+    assert browser.find_chrome() is None

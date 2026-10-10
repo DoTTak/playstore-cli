@@ -57,7 +57,7 @@ class Profile:
         path = find_profile(name)
         if not path:
             raise ValueError(f"no such profile: {name} (available: {', '.join(available_profiles())})")
-        return cls(name, parse_properties(path.read_text()))
+        return cls(name, parse_properties(path.read_text(encoding="utf-8")))
 
     def _list(self, key: str) -> list[str]:
         return [x for x in self.props[key].split(",") if x]

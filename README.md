@@ -94,7 +94,7 @@ uv tool install .
 
 You also need:
 
-- A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`
+- A Chrome-based browser (Chrome, Chromium, Edge, Brave), used by `login`. Without one, `login` walks you through signing in with any desktop browser instead
 - A Google account. A separate account for research is recommended (see [Caveats](#caveats))
 - [adb](https://developer.android.com/tools/adb), only to generate your own device profiles with `profile`
 
@@ -147,12 +147,14 @@ flowchart LR
 ### login
 
 ```bash
-playstore-cli login [--email EMAIL] [--oauth-token TOKEN] [--timeout 600]
+playstore-cli login [--email EMAIL] [--manual] [--oauth-token TOKEN] [--timeout 600]
 ```
 
 - Opens the Google "Add account" page (`accounts.google.com/EmbeddedSetup`) in a browser window. Once you have signed in (including 2-step verification), it reads the `oauth_token` cookie and exchanges it for a long-lived AAS token. The window closes by itself.
+- It looks for Chrome, Chromium, Edge and Brave in their usual places on macOS, Linux and Windows. On Windows, Edge comes with the system.
 - The browser profile used for the login is kept, so 2-step verification is usually asked only the first time.
-- With `--oauth-token`, no browser is opened. That token expires within minutes, so use it right away.
+- With `--manual`, or when no Chrome-based browser is found, it prints the steps to sign in with any desktop browser and copy the `oauth_token` cookie from its developer tools, then asks you to paste it. A phone browser won't do, since it can't show cookies.
+- With `--oauth-token`, the token is taken from the command line instead. It expires within minutes, so use it right away.
 
 ### checkin
 

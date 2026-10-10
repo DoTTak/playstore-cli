@@ -62,15 +62,40 @@ def _with_api(call):
         return call(_play_api(fresh=True))
 
 
+MANUAL_LOGIN_STEPS = f"""\
+Sign in with any desktop browser, then copy the oauth_token cookie:
+  1. Open {browser.EMBEDDED_SETUP_URL} and sign in (including 2-step verification).
+     Accept the terms if asked. The page may keep loading after that; that's fine.
+  2. Open the developer tools (F12, or Cmd+Option+I on a Mac) and find the cookies of accounts.google.com:
+     Chrome and Edge: Application → Cookies. Firefox and Safari: Storage → Cookies.
+     Safari shows the developer tools only after Settings → Advanced → "Show features for web developers".
+  3. Copy the value of the oauth_token cookie (oauth2_4/...) and paste it below.
+     It expires within minutes, so paste it right away."""
+
+
+def _ask_oauth_token() -> str:
+    print(MANUAL_LOGIN_STEPS)
+    token = input("oauth_token: ").strip().removeprefix("oauth_token=")
+    if not token:
+        raise ValueError("no oauth_token entered")
+    return token
+
+
 def cmd_login(args) -> int:
     email, oauth_token = args.email, args.oauth_token
-    if not oauth_token:
+    if not oauth_token and not args.manual and browser.find_chrome():
         print("Sign in to your Google account in the browser window (including 2-step verification). "
               "The window closes by itself when you are done.")
         scraped, oauth_token = browser.capture_oauth_token(store.chrome_profile_dir(),
                                                            timeout=args.timeout)
         print(f"Got oauth_token: {_mask(oauth_token)}")
         email = email or scraped
+    elif not oauth_token:
+        if not args.manual:
+            print("No Chrome-based browser found (Chrome, Chromium, Edge, Brave), so sign in by hand.")
+        # Asked first: the oauth_token pasted next expires within minutes
+        email = email or input("Account email: ").strip()
+        oauth_token = _ask_oauth_token()
     if not email:
         # The oauth_token expires within minutes, so this must be entered right away
         email = input("Could not detect the email address. Account email: ").strip()
@@ -112,7 +137,7 @@ def cmd_profile(args) -> int:
     name = args.name or props["Build.DEVICE"]
     path = Path(args.out) if args.out else user_profiles_dir() / f"{name}.properties"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(profile_dump.to_properties(props))
+    path.write_text(profile_dump.to_properties(props), encoding="utf-8")
     print(f"{props['UserReadableName']}, Android {props['Build.VERSION.RELEASE']} (SDK {props['Build.VERSION.SDK_INT']})")
     print(f"  {props['Build.FINGERPRINT']}")
     print(f"Saved: {path}")
@@ -346,6 +371,8 @@ def main(argv=None) -> int:
     login.add_argument("--email", help="account email (detected automatically with the browser login)")
     login.add_argument("--oauth-token",
                        help="oauth_token cookie from EmbeddedSetup (oauth2_4/...); skips the browser")
+    login.add_argument("--manual", action="store_true",
+                       help="sign in with any browser and paste the oauth_token cookie, instead of opening Chrome")
     login.add_argument("--timeout", type=float, default=600, help="seconds to wait for the browser login")
     login.set_defaults(func=cmd_login)
 

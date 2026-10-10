@@ -8,6 +8,7 @@ GoogleLoginScreen).
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -25,7 +26,17 @@ CHROME_CANDIDATES = [
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
     "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
     "google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
+    "microsoft-edge", "microsoft-edge-stable", "brave-browser",
 ]
+
+# Windows browsers aren't on PATH: per-machine installs live under Program Files, per-user ones under LocalAppData
+WINDOWS_CANDIDATES = [
+    ("Google", "Chrome", "Application", "chrome.exe"),
+    ("Chromium", "Application", "chrome.exe"),
+    ("Microsoft", "Edge", "Application", "msedge.exe"),
+    ("BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+]
+WINDOWS_ROOTS = ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"]
 
 # <div data-profile-identifier data-email="..."> on the post-login page (the same place Aurora reads)
 _EMAIL_JS = (
@@ -39,7 +50,9 @@ class LoginError(Exception):
 
 
 def find_chrome() -> str | None:
-    for c in CHROME_CANDIDATES:
+    windows = [str(Path(os.environ[root], *parts))
+               for parts in WINDOWS_CANDIDATES for root in WINDOWS_ROOTS if os.environ.get(root)]
+    for c in [*CHROME_CANDIDATES, *windows]:
         path = c if Path(c).is_absolute() else shutil.which(c)
         if path and Path(path).exists():
             return path
@@ -118,7 +131,7 @@ def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
     """
     chrome = chrome or find_chrome()
     if not chrome:
-        raise LoginError("no Chrome-based browser found; pass the token with --oauth-token instead")
+        raise LoginError("no Chrome-based browser found; sign in with --manual instead")
     profile_dir.mkdir(parents=True, exist_ok=True)
     port = _free_port()
     args = [
