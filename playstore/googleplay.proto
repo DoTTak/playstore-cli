@@ -1,0 +1,76 @@
+// 구글 플레이·체크인 프로토콜 메시지 — 단계별로 필요한 것만 둔다.
+// 필드 번호는 gpapi 0.4.4 의 googleplay_pb2 descriptor 에서 복원한 값.
+//
+// 재생성 (저장소 루트에서):  protoc -I. --python_out=. playstore/googleplay.proto
+syntax = "proto2";
+
+package playstore;
+
+// --- checkin (android.clients.google.com/checkin) ---------------------------
+
+message AndroidBuildProto {
+  optional string id = 1;            // Build.FINGERPRINT
+  optional string product = 2;       // Build.HARDWARE
+  optional string carrier = 3;       // Build.BRAND
+  optional string radio = 4;
+  optional string bootloader = 5;
+  optional string client = 6;
+  optional int64 timestamp = 7;
+  optional int32 googleServices = 8;  // GSF 버전
+  optional string device = 9;
+  optional int32 sdkVersion = 10;
+  optional string model = 11;
+  optional string manufacturer = 12;
+  optional string buildProduct = 13;
+  optional bool otaInstalled = 14;
+}
+
+message AndroidCheckinProto {
+  optional AndroidBuildProto build = 1;
+  optional int64 lastCheckinMsec = 2;
+  optional string cellOperator = 6;
+  optional string simOperator = 7;
+  optional string roaming = 8;
+  optional int32 userNumber = 9;
+}
+
+message DeviceConfigurationProto {
+  optional int32 touchScreen = 1;
+  optional int32 keyboard = 2;
+  optional int32 navigation = 3;
+  optional int32 screenLayout = 4;
+  optional bool hasHardKeyboard = 5;
+  optional bool hasFiveWayNavigation = 6;
+  optional int32 screenDensity = 7;
+  optional int32 glEsVersion = 8;
+  repeated string systemSharedLibrary = 9;
+  repeated string systemAvailableFeature = 10;
+  repeated string nativePlatform = 11;
+  optional int32 screenWidth = 12;
+  optional int32 screenHeight = 13;
+  repeated string systemSupportedLocale = 14;
+  repeated string glExtension = 15;
+  optional int32 deviceClass = 16;
+  optional int32 maxApkDownloadSizeMb = 17;
+}
+
+message AndroidCheckinRequest {
+  optional int64 id = 2;                     // 0 = 새 기기, 이후 발급받은 androidId
+  optional AndroidCheckinProto checkin = 4;
+  optional string locale = 6;
+  repeated string accountCookie = 11;        // ["[email]", ac2dm 토큰]
+  optional string timeZone = 12;
+  optional fixed64 securityToken = 13;
+  optional int32 version = 14;
+  optional DeviceConfigurationProto deviceConfiguration = 18;
+  optional int32 fragment = 20;
+}
+
+message AndroidCheckinResponse {
+  optional bool statsOk = 1;
+  optional int64 timeMsec = 3;
+  optional bool marketOk = 6;
+  optional fixed64 androidId = 7;            // = gsfId (hex 로 표기)
+  optional fixed64 securityToken = 8;
+  optional string deviceCheckinConsistencyToken = 12;
+}

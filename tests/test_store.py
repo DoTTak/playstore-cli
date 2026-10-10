@@ -23,3 +23,12 @@ def test_save_tightens_existing_file(tmp_path):
 
 def test_load_missing(tmp_path):
     assert store.load_account(tmp_path / "none.json") is None
+
+
+def test_save_and_load_device(tmp_path, monkeypatch):
+    monkeypatch.setenv("PLAYSTORE_HOME", str(tmp_path))
+    path = store.save_device({"profile": "pixel_9a", "gsfId": "3a1b"})
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    data = store.load_device()
+    assert (data["profile"], data["gsfId"]) == ("pixel_9a", "3a1b") and data["checkedInAt"]

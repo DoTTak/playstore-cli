@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Google Play 스토어 비공식 클라이언트 (연구용)"
 requires-python = ">=3.12"
 dependencies = [
+    "protobuf>=5.28.3,<6",
     "requests>=2.32",
     "websocket-client>=1.8",
 ]

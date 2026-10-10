@@ -89,3 +89,37 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
     if not token:
         raise AuthError(f"응답에 Token 이 없음 (keys={sorted(data)})")
     return token
+
+
+def exchange_aas_token(email: str, aas_token: str, service: str, *, gsf_id: str | None = None,
+                       app: str | None = None, header_app: str = "com.android.vending") -> str:
+    """AAS 토큰 → 서비스별 토큰 (Aurora GooglePlayApi.generateToken 과 같은 요청).
+
+    service="ac2dm"  : checkin 때 기기에 계정을 연결하는 토큰
+    service="oauth2:https://www.googleapis.com/auth/googleplay" : Play API Bearer 토큰
+    """
+    params = {
+        "sdk_version": 28,
+        "Email": email,
+        "google_play_services_version": PLAY_SERVICES_VERSION,
+        "device_country": "us",
+        "lang": "en",
+        "callerSig": CALLER_SIG,
+        "client_sig": CALLER_SIG,
+        "callerPkg": "com.google.android.gms",
+        "Token": aas_token,
+        "oauth2_foreground": "1",
+        "token_request_options": "CAA4AVAB",
+        "check_email": "1",
+        "system_partition": "1",
+        "service": service,
+    }
+    if gsf_id:
+        params["androidId"] = gsf_id
+    if app:
+        params["app"] = app
+    data = _post(params, {"app": header_app, "User-Agent": "GoogleAuth/1.4"})
+    token = data.get("Auth") or data.get("Token")
+    if not token:
+        raise AuthError(f"{service} 토큰이 응답에 없음 (keys={sorted(data)})")
+    return token
