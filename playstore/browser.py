@@ -1,8 +1,9 @@
-"""로그인 1단계: 브라우저 로그인으로 oauth_token 쿠키를 얻는다.
+"""Login step 1: get the oauth_token cookie through a browser login.
 
-accounts.google.com/EmbeddedSetup 은 안드로이드 '계정 추가' 화면의 웹 버전이다.
-로그인을 마치면 oauth_token(oauth2_4/...) 쿠키가 생기고, 이것이 AAS 교환에 쓰는 1회용 토큰이다.
-Chrome 을 원격 디버깅(CDP) 모드로 띄워 그 쿠키를 읽어 온다 (Aurora Store GoogleLoginScreen 과 같은 방식).
+accounts.google.com/EmbeddedSetup is the web version of Android's "Add account" screen.
+Finishing the login sets an oauth_token (oauth2_4/...) cookie, the one-time token exchanged for AAS.
+Chrome is started in remote debugging (CDP) mode to read that cookie (same approach as Aurora Store's
+GoogleLoginScreen).
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ CHROME_CANDIDATES = [
     "google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
 ]
 
-# 로그인 후 페이지의 <div data-profile-identifier data-email="..."> (Aurora 가 읽는 위치와 같음)
+# <div data-profile-identifier data-email="..."> on the post-login page (the same place Aurora reads)
 _EMAIL_JS = (
     "(() => { const el = document.querySelector('[data-profile-identifier][data-email]');"
     " return el ? el.getAttribute('data-email') : null; })()"
@@ -46,10 +47,10 @@ def find_chrome() -> str | None:
 
 
 class _Cdp:
-    """DevTools 프로토콜 최소 클라이언트 (페이지 타깃 하나)."""
+    """Minimal DevTools protocol client (a single page target)."""
 
     def __init__(self, ws_url: str):
-        # Origin 헤더를 빼야 --remote-allow-origins 없이 접속된다
+        # Omit the Origin header so the connection works without --remote-allow-origins
         self._ws = websocket.create_connection(ws_url, timeout=10, suppress_origin=True)
         self._id = 0
 
@@ -58,7 +59,7 @@ class _Cdp:
         self._ws.send(json.dumps({"id": self._id, "method": method, "params": params}))
         while True:
             msg = json.loads(self._ws.recv())
-            if msg.get("id") == self._id:  # id 가 없는 건 이벤트 → 무시
+            if msg.get("id") == self._id:  # messages without an id are events → ignore
                 if "error" in msg:
                     raise LoginError(f"CDP {method}: {msg['error']}")
                 return msg.get("result", {})
@@ -74,9 +75,9 @@ def _free_port() -> int:
 
 
 def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 15) -> str:
-    """DevTools 가 뜰 때까지 기다렸다가 첫 페이지 탭의 웹소켓 주소를 반환."""
+    """Wait until DevTools is up and return the WebSocket URL of the first page tab."""
     http = requests.Session()
-    http.trust_env = False  # 시스템 프록시(Burp 등)를 거치지 않게
+    http.trust_env = False  # bypass the system proxy (Burp, etc.)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.poll() is not None:
@@ -92,7 +93,7 @@ def _page_ws_url(port: int, proc: subprocess.Popen, timeout: float = 15) -> str:
 
 
 def _profile_email(cdp: _Cdp) -> str | None:
-    # 쿠키가 페이지 렌더링보다 먼저 생길 수 있어 잠깐 재시도
+    # The cookie may appear before the page renders, so retry briefly
     for _ in range(6):
         try:
             value = cdp.call("Runtime.evaluate", expression=_EMAIL_JS,
@@ -108,9 +109,9 @@ def _profile_email(cdp: _Cdp) -> str | None:
 def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
                         timeout: float = 600, chrome: str | None = None,
                         headless: bool = False) -> tuple[str | None, str]:
-    """브라우저 창을 띄우고, 로그인이 끝나면 (이메일 또는 None, oauth_token) 을 반환.
+    """Open a browser window and, once login finishes, return (email or None, oauth_token).
 
-    profile_dir 는 전용 Chrome 프로필. 유지해 두면 2단계 인증은 보통 처음 한 번만 묻는다.
+    profile_dir is a dedicated Chrome profile. If kept, 2-step verification is usually asked only the first time.
     """
     chrome = chrome or find_chrome()
     if not chrome:
@@ -123,7 +124,7 @@ def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
         f"--user-data-dir={profile_dir}",
         "--no-first-run",
         "--no-default-browser-check",
-        # 자동화 표식(navigator.webdriver)을 끈다. 구글은 자동화된 브라우저의 로그인을 막는다.
+        # Turn off the automation marker (navigator.webdriver). Google blocks logins from automated browsers.
         "--disable-blink-features=AutomationControlled",
         "--window-size=480,720",
     ]
@@ -135,7 +136,7 @@ def capture_oauth_token(profile_dir: Path, *, url: str = EMBEDDED_SETUP_URL,
     cdp = None
     try:
         cdp = _Cdp(_page_ws_url(port, proc))
-        # 지난 실행에서 남은(이미 쓴) 쿠키를 지우고 시작해야 새로 발급된 것만 잡힌다
+        # Clear the (already used) cookie left from a previous run so only a freshly issued one is caught
         cdp.call("Network.deleteCookies", name="oauth_token", url=url)
         cdp.call("Page.navigate", url=url)
 

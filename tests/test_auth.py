@@ -92,4 +92,4 @@ def test_auth_adapter_tls_context():
     ctx = auth._AuthAdapter().poolmanager.connection_pool_kw["ssl_context"]
     assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
     assert not ctx.options & ssl.OP_NO_TICKET
-    ctx.set_alpn_protocols(["http/1.1"])  # 무시돼야 한다
+    ctx.set_alpn_protocols(["http/1.1"])  # must be ignored

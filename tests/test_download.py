@@ -65,7 +65,7 @@ def test_fetch_skips_file_already_downloaded(fake_server, tmp_path):
 
 
 def test_fetch_replaces_corrupted_file(fake_server, tmp_path):
-    (tmp_path / "base.apk").write_bytes(b"x" * len(BASE))  # 크기는 같고 내용이 다름
+    (tmp_path / "base.apk").write_bytes(b"x" * len(BASE))  # same size, different content
     fake_server.respond(BASE, path="/base")
     data = delivery(fake_server.url)
 

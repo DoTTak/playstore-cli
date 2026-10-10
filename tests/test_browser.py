@@ -10,7 +10,7 @@ pytestmark = pytest.mark.skipif(browser.find_chrome() is None, reason="Chrome �
 
 @pytest.fixture
 def fake_setup_page():
-    """EmbeddedSetup 로그인 완료 화면 대역: oauth_token 쿠키 + 프로필 이메일."""
+    """Stand-in for the EmbeddedSetup login-complete page: oauth_token cookie + profile email."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):

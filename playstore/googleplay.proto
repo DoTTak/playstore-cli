@@ -1,7 +1,7 @@
-// 구글 플레이·체크인 프로토콜 메시지 — 단계별로 필요한 것만 둔다.
-// 필드 번호는 gpapi 0.4.4 의 googleplay_pb2 descriptor 에서 복원한 값.
+// Google Play and checkin protocol messages, keeping only what each step needs.
+// Field numbers were recovered from the googleplay_pb2 descriptor of gpapi 0.4.4.
 //
-// 재생성 (저장소 루트에서):  protoc -I. --python_out=. playstore/googleplay.proto
+// Regenerate (from the repository root):  protoc -I. --python_out=. playstore/googleplay.proto
 syntax = "proto2";
 
 package playstore;
@@ -16,7 +16,7 @@ message AndroidBuildProto {
   optional string bootloader = 5;
   optional string client = 6;
   optional int64 timestamp = 7;
-  optional int32 googleServices = 8;  // GSF 버전
+  optional int32 googleServices = 8;  // GSF version
   optional string device = 9;
   optional int32 sdkVersion = 10;
   optional string model = 11;
@@ -55,10 +55,10 @@ message DeviceConfigurationProto {
 }
 
 message AndroidCheckinRequest {
-  optional int64 id = 2;                     // 0 = 새 기기, 이후 발급받은 androidId
+  optional int64 id = 2;                     // 0 = new device, then the issued androidId
   optional AndroidCheckinProto checkin = 4;
   optional string locale = 6;
-  repeated string accountCookie = 11;        // ["[email]", ac2dm 토큰]
+  repeated string accountCookie = 11;        // ["[email]", ac2dm token]
   optional string timeZone = 12;
   optional fixed64 securityToken = 13;
   optional int32 version = 14;
@@ -70,12 +70,12 @@ message AndroidCheckinResponse {
   optional bool statsOk = 1;
   optional int64 timeMsec = 3;
   optional bool marketOk = 6;
-  optional fixed64 androidId = 7;            // = gsfId (hex 로 표기)
+  optional fixed64 androidId = 7;            // = gsfId (written in hex)
   optional fixed64 securityToken = 8;
   optional string deviceCheckinConsistencyToken = 12;
 }
 
-// --- fdfe API 공통 (android.clients.google.com/fdfe/*) ----------------------
+// --- fdfe API common (android.clients.google.com/fdfe/*) ---------------------
 
 message ResponseWrapper {
   optional Payload payload = 1;
@@ -83,7 +83,7 @@ message ResponseWrapper {
   repeated PreFetch preFetch = 3;
 }
 
-// 응답에 미리 실어 보내는 다른 요청의 응답. search 는 결과 목록을 여기에 담아 준다.
+// Responses to other requests, sent ahead along with this one. search puts its result list here.
 message PreFetch {
   optional string url = 1;
   optional ResponseWrapper response = 2;
@@ -91,7 +91,7 @@ message PreFetch {
 
 message ServerCommands {
   optional bool clearCache = 1;
-  optional string displayErrorMessage = 2;   // "Item not found." 등
+  optional string displayErrorMessage = 2;   // "Item not found." and the like
   optional string logErrorStacktrace = 3;
 }
 
@@ -106,7 +106,7 @@ message Payload {
   optional UploadDeviceConfigResponse uploadDeviceConfigResponse = 28;
 }
 
-// --- Play 세션 (uploadDeviceConfig, toc, acceptTos) --------------------------
+// --- Play session (uploadDeviceConfig, toc, acceptTos) ------------------------
 
 message UploadDeviceConfigRequest {
   optional DeviceConfigurationProto deviceConfiguration = 1;
@@ -120,7 +120,7 @@ message UploadDeviceConfigResponse {
 
 message TocResponse {
   optional string tosContent = 3;
-  optional string tosToken = 7;                 // acceptTos 의 tost
+  optional string tosToken = 7;                 // tost for acceptTos
   optional bool requiresUploadDeviceConfig = 11;
   optional string cookie = 22;                  // → X-DFE-Cookie
 }
@@ -128,7 +128,7 @@ message TocResponse {
 message AcceptTosResponse {
 }
 
-// --- details (fdfe/details?doc=<패키지>) -------------------------------------
+// --- details (fdfe/details?doc=<package>) -----------------------------------
 
 message DetailsResponse {
   optional DocV2 docV2 = 4;
@@ -136,17 +136,17 @@ message DetailsResponse {
 
 message DocV2 {
   optional string docid = 1;
-  optional int32 docType = 3;                // 1 = 앱, 45 = 묶음(클러스터), 46 = 스트림
+  optional int32 docType = 3;                // 1 = app, 45 = cluster, 46 = stream
   optional string title = 5;
   optional string creator = 6;
   repeated Offer offer = 8;
-  repeated DocV2 child = 11;                 // 묶음 안의 문서들
+  repeated DocV2 child = 11;                 // documents inside a cluster
   optional ContainerMetadata containerMetadata = 12;
   optional DocumentDetails details = 13;
 }
 
 message ContainerMetadata {
-  optional string nextPageUrl = 2;           // fdfe/ 기준 상대 경로 (searchList?…)
+  optional string nextPageUrl = 2;           // path relative to fdfe/ (searchList?…)
 }
 
 // --- search (fdfe/search?q=…&c=3) -------------------------------------------
@@ -162,10 +162,10 @@ message ListResponse {
 }
 
 message Offer {
-  optional int64 micros = 1;                 // 가격 × 10^6, 무료면 0
+  optional int64 micros = 1;                 // price × 10^6, 0 if free
   optional string currencyCode = 2;
   optional string formattedAmount = 3;
-  optional int32 offerType = 8;              // 1 = 구매
+  optional int32 offerType = 8;              // 1 = purchase
 }
 
 message DocumentDetails {
@@ -178,20 +178,21 @@ message AppDetails {
   optional string versionString = 4;
   optional string title = 5;
   optional int64 installationSize = 9;
-  // 매니페스트의 uses-permission 을 이 기기(SDK)에 맞게 가공한 목록이다. maxSdkVersion 이 기기 SDK 보다 낮은
-  // 권한은 빠지고, 암묵적 권한은 더해진다 (YouTube: 매니페스트 50개 + WRITE_EXTERNAL_STORAGE 가 붙이는
-  // READ_EXTERNAL_STORAGE = 51개)
+  // The manifest's uses-permission list as adapted to this device (SDK): permissions whose maxSdkVersion is
+  // below the device SDK are dropped and implied permissions are added (YouTube: 50 in the manifest +
+  // READ_EXTERNAL_STORAGE implied by WRITE_EXTERNAL_STORAGE = 51)
   repeated string permission = 10;
   optional string numDownloads = 13;
   optional string packageName = 14;
   optional string uploadDate = 16;
-  repeated CertificateSet certificateSet = 22;  // gpapi 정의엔 없음 — 실제 응답에서 확인
+  repeated CertificateSet certificateSet = 22;  // not in gpapi's definitions; found in real responses
 }
 
-// 서명 인증서 해시. 값은 base64url(패딩 없음) 인코딩이다.
-// 유료 앱도 구매 없이 온다. 인증서가 여러 개일 수 있고, APK 의 서명자와 꼭 같지는 않다 — YouTube 21.40.161:
-//   details = 4ba713df…, 24bb24c0… / APK v3(SDK 24~32) = 24bb24c0…, v3.1(SDK 33~, 교체된 키) = f8456b1d…
-//   (apksigner 결과와 일치. 4ba713df… 는 APK 서명·lineage 어디에도 없음)
+// Signing certificate hashes, base64url-encoded (no padding).
+// Sent for paid apps too, without a purchase. There can be several certificates, and they don't necessarily
+// match the APK's signers. YouTube 21.40.161:
+//   details = 4ba713df…, 24bb24c0… / APK v3 (SDK 24-32) = 24bb24c0…, v3.1 (SDK 33+, rotated key) = f8456b1d…
+//   (matches apksigner. 4ba713df… is nowhere in the APK's signers or lineage)
 message CertificateSet {
   optional string sha1 = 1;
   optional string sha256 = 2;
@@ -200,21 +201,21 @@ message CertificateSet {
 // --- purchase / delivery (fdfe/purchase, fdfe/delivery) ----------------------
 
 message BuyResponse {
-  optional string downloadToken = 55;        // → delivery 의 dtok
+  optional string downloadToken = 55;        // → dtok for delivery
 }
 
 message DeliveryResponse {
   optional AndroidAppDeliveryData appDeliveryData = 2;
 }
 
-// sha1/sha256 은 파일 해시의 base64url(패딩 없음)이다 (YouTube delivery 로 확인).
+// sha1/sha256 are base64url (no padding) file hashes (checked with a YouTube delivery).
 message AndroidAppDeliveryData {
   optional int64 downloadSize = 1;
   optional string sha1 = 2;
   optional string downloadUrl = 3;           // base APK
-  repeated AppFileMetadata additionalFile = 4;  // 확장 파일(OBB)
+  repeated AppFileMetadata additionalFile = 4;  // expansion files (OBB)
   repeated HttpCookie downloadAuthCookie = 5;
-  repeated Split split = 15;                 // split APK (config.arm64_v8a, 기능 모듈 등)
+  repeated Split split = 15;                 // split APKs (config.arm64_v8a, feature modules, etc.)
   optional string sha256 = 19;
 }
 

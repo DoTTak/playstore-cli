@@ -13,7 +13,7 @@ from .device import DEFAULT_PROFILE, Profile
 
 
 class _Missing(Exception):
-    """앞 단계(login, checkin) 결과가 없음."""
+    """A previous step's result (login, checkin) is missing."""
 
 
 def _mask(token: str) -> str:
@@ -44,13 +44,13 @@ def _new_session(account: dict, device: dict) -> dict:
 def _play_api(*, fresh: bool = False) -> PlayApi:
     account, device = _account(), _device()
     sess = None if fresh else store.load_session()
-    if not sess or sess.get("gsfId") != device["gsfId"]:  # 기기를 새로 등록했으면 세션도 새로
+    if not sess or sess.get("gsfId") != device["gsfId"]:  # a newly registered device needs a new session
         sess = _new_session(account, device)
     return PlayApi(device, sess)
 
 
 def _with_api(call):
-    """call(api) 실행. Play 토큰 만료(401)면 저장된 AAS 로 세션을 새로 만들어 한 번 재시도."""
+    """Run call(api). If the Play token expired (401), rebuild the session from the saved AAS token and retry once."""
     try:
         return call(_play_api())
     except PlayApiError as e:
@@ -69,7 +69,7 @@ def cmd_login(args) -> int:
         print(f"oauth_token 획득: {_mask(oauth_token)}")
         email = email or scraped
     if not email:
-        # oauth_token 은 몇 분 안에 만료되므로 바로 입력해야 한다
+        # The oauth_token expires within minutes, so this must be entered right away
         email = input("이메일을 자동으로 찾지 못했습니다. 계정 이메일: ").strip()
 
     aas = auth.exchange_oauth_token(email, oauth_token)
@@ -83,7 +83,7 @@ def cmd_checkin(args) -> int:
     account = _account()
     existing = store.load_device()
     if existing and not args.force:
-        # checkin 할 때마다 계정에 새 기기가 등록되므로, 있으면 재사용한다
+        # Every checkin registers a new device on the account, so reuse the existing one
         print(f"이미 등록된 기기가 있습니다: gsfId={existing['gsfId']} ({existing['profile']})")
         print("새로 등록하려면 --force")
         return 0
@@ -118,7 +118,7 @@ def cmd_details(args) -> int:
     print(f"버전     {a.versionString} ({a.versionCode})")
     print(f"개발자   {a.developerName or doc.creator}")
     print(f"업데이트 {a.uploadDate}")
-    print(f"설치수   {a.numDownloads}")  # 값에 "다운로드 …회 이상" 문구가 포함돼 옴
+    print(f"설치수   {a.numDownloads}")  # the value already includes localized wording such as "… downloads"
     print(f"크기     {a.installationSize / 1024 / 1024:.1f} MB")
     print(f"권한     {len(a.permission)}개")
     for perm in a.permission:
@@ -178,7 +178,7 @@ def _mb(n: int) -> str:
 
 
 def _progress_line(prefix: str):
-    """터미널이면 같은 줄에 진행률을 덮어쓴다 (1% 단위)."""
+    """On a terminal, overwrite progress on the same line (in 1% steps)."""
     if not sys.stdout.isatty():
         return None
     last = -1
@@ -196,7 +196,7 @@ def cmd_download(args) -> int:
     doc, data = _with_api(lambda api: api.app_delivery(args.package, args.version_code))
     a = doc.details.appDetails
     vc = args.version_code or a.versionCode
-    # versionString 은 details(최신 버전)에만 있다
+    # versionString is only in details (the latest version)
     version = (f"{a.versionString} ({vc})" if vc == a.versionCode
                else f"versionCode {vc} (최신 {a.versionString} / {a.versionCode})")
     out = Path(args.out) / f"{args.package}-{vc}"

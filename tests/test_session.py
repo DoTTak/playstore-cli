@@ -122,7 +122,7 @@ def test_app_delivery_owned_app_skips_purchase(play_server):
 
 def test_app_delivery_purchases_then_retries(play_server):
     serve_details(play_server)
-    play_server.respond(delivery(""), path="/fdfe/delivery")  # 아직 보관함에 없음
+    play_server.respond(delivery(""), path="/fdfe/delivery")  # not in the library yet
     play_server.respond(delivery("https://play.example/base.apk"), path="/fdfe/delivery")
     play_server.respond(wrap(buyResponse=pb.BuyResponse(downloadToken="dtok-1")), path="/fdfe/purchase")
 
@@ -147,7 +147,7 @@ def test_app_delivery_incompatible(play_server):
         PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
 
 
-@pytest.mark.parametrize("latest", [1561301413, 0])  # 0: 최신 버전이 기기 비호환이어도 지정한 버전은 시도
+@pytest.mark.parametrize("latest", [1561301413, 0])  # 0: the given version is tried even if the latest is incompatible with the device
 def test_app_delivery_version_code(play_server, latest):
     serve_details(play_server, version_code=latest)
     play_server.respond(delivery("https://play.example/base.apk"), path="/fdfe/delivery")
@@ -160,7 +160,7 @@ def test_app_delivery_version_code(play_server, latest):
 
 
 def test_app_delivery_missing_version(play_server):
-    # Play 에 없는 버전: 실제 서버는 오류 없이 downloadUrl 을 비워서 준다
+    # A version Play doesn't have: the real server returns no error, just an empty downloadUrl
     serve_details(play_server)
     play_server.respond(delivery(""), path="/fdfe/delivery")
     play_server.respond(wrap(buyResponse=pb.BuyResponse(downloadToken="dtok-1")), path="/fdfe/purchase")
@@ -170,7 +170,7 @@ def test_app_delivery_missing_version(play_server):
 
 
 def test_certificate_hashes_from_details():
-    # YouTube 21.40.161 details 실제 응답의 certificateSet 값 (base64url) — 인증서 2개
+    # certificateSet values (base64url) from a real YouTube 21.40.161 details response: 2 certificates
     doc = pb.DocV2(details=pb.DocumentDetails(appDetails=pb.AppDetails(certificateSet=[
         pb.CertificateSet(sha1="S6cT3-zpPUdXLcXoRaeoLEqJHy8",
                           sha256="f9LOoww6YCLrKUGc6Pb5LOikvTWwzIee08ymy_XpmS0"),
@@ -202,7 +202,7 @@ def cluster(*children: pb.DocV2, next_page: str = "") -> pb.DocV2:
 
 
 def serve_search(srv, first: pb.ListResponse):
-    # 첫 페이지는 결과를 preFetch 에 담고 payload 에는 searchResponse 만 둔다 (실제 응답 구조)
+    # The first page carries results in preFetch and only a searchResponse in payload (real response layout)
     srv.respond(pb.ResponseWrapper(
         payload=pb.Payload(searchResponse=pb.SearchResponse(originalQuery="은행")),
         preFetch=[pb.PreFetch(response=pb.ResponseWrapper(payload=pb.Payload(listResponse=first)))],
@@ -210,7 +210,7 @@ def serve_search(srv, first: pb.ListResponse):
 
 
 def test_search_follows_cluster_then_stream_pages(play_server):
-    related = pb.DocV2(docType=53, title="국민은행")  # 관련 검색어 — 앱이 아님
+    related = pb.DocV2(docType=53, title="국민은행")  # related search, not an app
     serve_search(play_server, stream(
         cluster(app("a.one"), app("a.two"), next_page="getCluster?enpt=E1"),
         next_page="searchList?q=%EC%9D%80%ED%96%89&ctntkn=T1"))
@@ -220,7 +220,7 @@ def test_search_follows_cluster_then_stream_pages(play_server):
 
     apps = PlayApi(DEVICE, SESSION).search("은행")
 
-    # 첫 묶음의 다음 결과(getCluster)가 다음 묶음(searchList)보다 앞
+    # The first cluster's next results (getCluster) come before the next clusters (searchList)
     assert [a.docid for a in apps] == ["a.one", "a.two", "a.three", "a.four"]
     assert [r["path"] for r in play_server.requests] == ["/fdfe/search", "/fdfe/getCluster", "/fdfe/searchList"]
     first, by_cluster, by_stream = play_server.requests

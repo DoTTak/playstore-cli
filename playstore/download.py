@@ -1,8 +1,8 @@
-"""앱 파일 다운로드 — delivery 응답의 base APK, split APK, 확장 파일(OBB)을 받아 검증한다.
+"""App file download: fetch and verify the base APK, split APKs and expansion files (OBB) of a delivery response.
 
-파일 이름은 기기의 /data/app 배치를 따른다 (base.apk, split_<이름>.apk).
-그래서 받은 폴더를 `adb install-multiple <폴더>/*.apk` 로 그대로 설치할 수 있다.
-OBB 는 안드로이드 확장 파일 규칙인 [main|patch].<versionCode>.<패키지>.obb (gpapi delivery 주석).
+File names follow the on-device /data/app layout (base.apk, split_<name>.apk), so the downloaded folder
+can be installed as-is with `adb install-multiple <folder>/*.apk`.
+OBBs use Android's expansion file naming, [main|patch].<versionCode>.<package>.obb (per gpapi's delivery docs).
 """
 from __future__ import annotations
 
@@ -29,11 +29,11 @@ class PlayFile:
     name: str
     url: str
     size: int
-    sha1: str = ""    # delivery 응답 값 그대로 — base64url(패딩 없음)
+    sha1: str = ""    # as given in the delivery response: base64url (no padding)
     sha256: str = ""
 
     def expected_digest(self) -> tuple[str, str]:
-        """검증에 쓸 (알고리즘, 기대값). sha256 이 있으면 그쪽을 쓴다 (OBB 는 sha1 만 온다)."""
+        """(algorithm, expected value) used for verification. Prefer sha256 when present (OBBs only come with sha1)."""
         return ("sha256", self.sha256) if self.sha256 else ("sha1", self.sha1)
 
 
@@ -52,7 +52,7 @@ def _b64url(digest: bytes) -> str:
 
 
 def _verify(f: PlayFile, size: int, h) -> str | None:
-    """크기·해시가 delivery 값과 다르면 그 이유를, 같으면 None."""
+    """The reason if size or hash differs from the delivery values, otherwise None."""
     if f.size and size != f.size:
         return f"크기 불일치 ({size} != {f.size} 바이트)"
     algo, expected = f.expected_digest()
@@ -72,19 +72,20 @@ def _already_have(path: Path, f: PlayFile) -> bool:
 
 
 class Downloader:
-    """delivery 의 다운로드 URL 들을 받는 HTTP 세션."""
+    """HTTP session that downloads the URLs of a delivery response."""
 
     def __init__(self, data: pb.AndroidAppDeliveryData):
         self._http = requests.Session()
         host = urlsplit(data.downloadUrl).hostname
         for c in data.downloadAuthCookie:
-            # play.googleapis.com 은 CDN 으로 리다이렉트한다. CDN 에는 인증 쿠키를 보내지 않는다
+            # play.googleapis.com redirects to a CDN. Never send the auth cookie to the CDN
             self._http.cookies.set(c.name, c.value, domain=host)
 
     def fetch(self, f: PlayFile, dest_dir: Path, progress=None) -> bool:
-        """f 를 dest_dir 에 받아 크기·해시를 검증한다. 이미 받아 둔 같은 파일이 있으면 받지 않고 False.
+        """Download f into dest_dir and verify its size and hash. Returns False without downloading
+        if the same file is already there.
 
-        progress(받은 바이트, 전체 바이트) 는 조각을 받을 때마다 불린다.
+        progress(bytes received, total bytes) is called for every chunk.
         """
         path = dest_dir / f.name
         if _already_have(path, f):
@@ -106,7 +107,7 @@ class Downloader:
                             progress(size, f.size)
             if problem := _verify(f, size, h):
                 raise DownloadError(f"{f.name}: {problem}")
-        except BaseException:  # Ctrl-C 포함 — 덜 받은 파일을 남기지 않는다
+        except BaseException:  # including Ctrl-C: never leave a partial file behind
             part.unlink(missing_ok=True)
             raise
         os.replace(part, path)

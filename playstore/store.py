@@ -1,7 +1,7 @@
-"""로그인·기기 등록 결과 저장 위치.
+"""Where login and device registration results are stored.
 
-AAS 는 계정 비밀번호에 준하는 장기 토큰이라 파일 권한을 600 으로 둔다.
-기본 위치는 ~/.config/dottakstore, PLAYSTORE_HOME 으로 바꿀 수 있다.
+The AAS token is a long-lived token roughly as sensitive as the account password, so files are mode 600.
+The default location is ~/.config/dottakstore; override it with PLAYSTORE_HOME.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def _write_private(path: Path, data: dict) -> Path:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         json.dump(data, f, indent=2)
-    os.chmod(path, 0o600)  # 이미 있던 파일에는 O_CREAT 의 mode 가 적용되지 않는다
+    os.chmod(path, 0o600)  # O_CREAT's mode does not apply to a file that already exists
     return path
 
 
@@ -54,7 +54,7 @@ def load_account(path: Path | None = None) -> dict | None:
 
 
 def save_device(data: dict, path: Path | None = None) -> Path:
-    """checkin 으로 등록한 가상 기기 (프로필, gsfId, 토큰들)."""
+    """The virtual device registered by checkin (profile, gsfId, tokens)."""
     return _write_private(path or device_path(), {**data, "checkedInAt": int(time.time())})
 
 
@@ -63,7 +63,7 @@ def load_device(path: Path | None = None) -> dict | None:
 
 
 def save_session(data: dict, path: Path | None = None) -> Path:
-    """Play 세션 (Play 토큰, deviceConfigToken, dfeCookie). 만료되면 AAS 로 다시 만든다."""
+    """Play session (Play token, deviceConfigToken, dfeCookie). Rebuilt from the AAS token when it expires."""
     return _write_private(path or session_path(), {**data, "createdAt": int(time.time())})
 
 

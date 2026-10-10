@@ -1,8 +1,8 @@
-"""구글 계정 인증 엔드포인트(android.clients.google.com/auth) 클라이언트.
+"""Client for the Google account auth endpoint (android.clients.google.com/auth).
 
-로그인 2단계: 브라우저에서 얻은 1회용 oauth_token(oauth2_4/...) → 장기 AAS 토큰(aas_et/...).
-요청 파라미터는 Aurora Store 개인 계정 로그인(AC2DMTask)과 같다.
-이후 단계(AAS → ac2dm / Play 토큰)도 같은 엔드포인트를 쓰므로 여기에 모은다.
+Login step 2: one-time oauth_token from the browser (oauth2_4/...) → long-lived AAS token (aas_et/...).
+The request parameters match Aurora Store's personal account login (AC2DMTask).
+Later steps (AAS → ac2dm / Play token) use the same endpoint, so they live here too.
 """
 from __future__ import annotations
 
@@ -13,35 +13,35 @@ from requests.adapters import HTTPAdapter
 
 AUTH_URL = "https://android.clients.google.com/auth"
 
-# com.android.vending 서명 SHA-1. 구글 인증 클라이언트들이 공통으로 쓰는 공개 상수.
+# Signing certificate SHA-1 of com.android.vending. A public constant shared by Google auth clients.
 CALLER_SIG = "38918a453d07199354f8b19af05ec6562ced5788"
 PLAY_SERVICES_VERSION = 19629032
 
 
 class AuthError(Exception):
-    """구글이 인증 요청을 거절함 (Error=BadAuthentication 등)."""
+    """Google rejected the auth request (Error=BadAuthentication, etc.)."""
 
 
 class _NoAlpnContext(ssl.SSLContext):
     def set_alpn_protocols(self, protocols):
-        # gpsoauth: ALPN 을 보내면 /auth 가 403 BadAuthentication 을 준다.
+        # gpsoauth: /auth returns 403 BadAuthentication if ALPN is sent.
         pass
 
 
 class _AuthAdapter(HTTPAdapter):
-    """/auth 전용 TLS 설정 (gpsoauth AuthHTTPAdapter 와 같은 조정)."""
+    """TLS settings for /auth only (same tweaks as gpsoauth's AuthHTTPAdapter)."""
 
     def init_poolmanager(self, *args, **kwargs):
         ctx = _NoAlpnContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.load_verify_locations(requests.certs.where())
-        # urllib3 기본 컨텍스트의 OP_NO_TICKET 도 403 의 원인 → 끈 상태로 둔다
+        # OP_NO_TICKET in urllib3's default context also causes 403, so leave it cleared
         ctx.options &= ~ssl.OP_NO_TICKET
         kwargs["ssl_context"] = ctx
         super().init_poolmanager(*args, **kwargs)
 
 
 def parse_response(text: str) -> dict[str, str]:
-    """'Key=Value' 줄 단위 응답 → dict. 값에 공백이나 '=' 가 들어갈 수 있어 줄로 나눈다."""
+    """Line-based 'Key=Value' response → dict. Split by line because values may contain spaces or '='."""
     out = {}
     for line in text.splitlines():
         key, sep, value = line.partition("=")
@@ -58,7 +58,7 @@ def _post(params: dict, headers: dict) -> dict[str, str]:
     data = parse_response(resp.text)
     if resp.status_code != 200 or "Error" in data:
         detail = data.get("Error") or resp.text[:200]
-        for k in ("ErrorDetail", "Info", "Url"):  # NeedsBrowser 면 Url 이 온다
+        for k in ("ErrorDetail", "Info", "Url"):  # NeedsBrowser comes with a Url
             if k in data:
                 detail += f" {k}={data[k]}"
         raise AuthError(f"HTTP {resp.status_code}: {detail}")
@@ -66,7 +66,7 @@ def _post(params: dict, headers: dict) -> dict[str, str]:
 
 
 def exchange_oauth_token(email: str, oauth_token: str) -> str:
-    """oauth_token → AAS 토큰. oauth_token 은 1회용이고 몇 분 안에 만료된다."""
+    """oauth_token → AAS token. The oauth_token is single-use and expires within minutes."""
     data = _post(
         {
             "lang": "en-US",
@@ -93,10 +93,10 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
 
 def exchange_aas_token(email: str, aas_token: str, service: str, *, gsf_id: str | None = None,
                        app: str | None = None, header_app: str = "com.android.vending") -> str:
-    """AAS 토큰 → 서비스별 토큰 (Aurora GooglePlayApi.generateToken 과 같은 요청).
+    """AAS token → per-service token (same request as Aurora GooglePlayApi.generateToken).
 
-    service="ac2dm"  : checkin 때 기기에 계정을 연결하는 토큰
-    service="oauth2:https://www.googleapis.com/auth/googleplay" : Play API Bearer 토큰
+    service="ac2dm"  : token that links the account to the device during checkin
+    service="oauth2:https://www.googleapis.com/auth/googleplay" : Play API Bearer token
     """
     params = {
         "sdk_version": 28,

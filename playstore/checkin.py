@@ -1,9 +1,9 @@
-"""가상 기기 등록(checkin) — 구글이 기기에 androidId(= gsfId)를 발급한다.
+"""Virtual device registration (checkin): Google issues the device an androidId (= gsfId).
 
-Play API 요청은 모두 이 gsfId 를 X-DFE-Device-Id 로 싣는다.
-gpapi GooglePlayAPI.checkin 처럼 두 번 호출한다:
-  1차: id=0(새 기기)으로 체크인 → androidId, securityToken 발급
-  2차: 발급받은 id 로 다시 체크인하면서 accountCookie 로 계정을 기기에 연결
+Every Play API request carries this gsfId as X-DFE-Device-Id.
+Like gpapi GooglePlayAPI.checkin, it is called twice:
+  1st: check in with id=0 (new device) → androidId and securityToken are issued
+  2nd: check in again with the issued id, linking the account to the device via accountCookie
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _post(req: pb.AndroidCheckinRequest, headers: dict) -> pb.AndroidCheckinResp
 
 def checkin(profile: Profile, email: str, ac2dm_token: str, *,
             locale: str, timezone: str) -> dict:
-    """기기를 등록하고 {gsfId, securityToken, deviceCheckinConsistencyToken} 을 반환."""
+    """Register the device and return {gsfId, securityToken, deviceCheckinConsistencyToken}."""
     headers = {"User-Agent": profile.user_agent(), "Content-Type": "application/x-protobuffer"}
     req = profile.checkin_request(locale, timezone)
 

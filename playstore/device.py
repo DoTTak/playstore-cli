@@ -1,7 +1,7 @@
-"""가상 기기 프로필 — checkin 과 Play API 요청에 실리는 기기 정보.
+"""Virtual device profile: the device information sent with checkin and Play API requests.
 
-프로필은 Aurora Store 의 기기 .properties 포맷을 그대로 쓴다 (playstore/profiles/).
-pixel_9a.properties 는 Aurora/Calyx 프로필(GPL-3.0-or-later)이다.
+Profiles use Aurora Store's device .properties format as-is (playstore/profiles/).
+pixel_9a.properties is an Aurora/Calyx profile (GPL-3.0-or-later).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ DEFAULT_PROFILE = "pixel_9a"
 
 
 def parse_properties(text: str) -> dict[str, str]:
-    """자바 .properties (key=value, # 주석, \\: \\= 이스케이프) → dict."""
+    """Java .properties (key=value, # comments, \\: \\= escapes) → dict."""
     props = {}
     for line in text.splitlines():
         line = line.strip()
@@ -47,7 +47,7 @@ class Profile:
         return [x for x in self.props[key].split(",") if x]
 
     def user_agent(self) -> str:
-        """Play 스토어 앱(Finsky) User-Agent."""
+        """User-Agent of the Play Store app (Finsky)."""
         p = self.props
         params = [
             "api=3",
@@ -85,7 +85,7 @@ class Profile:
         )
 
     def checkin_request(self, locale: str, timezone: str) -> pb.AndroidCheckinRequest:
-        """새 기기(id=0) 체크인 요청. gpapi DeviceBuilder.getAndroidCheckinRequest 와 같은 구성."""
+        """Checkin request for a new device (id=0). Built like gpapi DeviceBuilder.getAndroidCheckinRequest."""
         p = self.props
         build = pb.AndroidBuildProto(
             id=p["Build.FINGERPRINT"],

@@ -29,7 +29,7 @@ def test_checkin_request():
     req = Profile.load().checkin_request("ko_KR", "Asia/Seoul")
 
     assert (req.id, req.version, req.locale, req.timeZone) == (0, 3, "ko_KR", "Asia/Seoul")
-    assert req.HasField("id")  # id=0 도 '새 기기' 로 명시해 보낸다
+    assert req.HasField("id")  # id=0 is sent explicitly too, to mean 'new device'
     b = req.checkin.build
     assert b.id == "google/tegu/tegu:15/BD4A.250405.003/13238919:user/release-keys"
     assert (b.product, b.device, b.sdkVersion, b.googleServices) == ("tegu", "tegu", 35, 251333035)

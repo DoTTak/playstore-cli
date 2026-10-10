@@ -18,7 +18,7 @@ def lp(b: bytes) -> bytes:
 
 
 def v2_value(*certs: bytes) -> bytes:
-    """서명자마다 인증서 체인 [자기 인증서, 중간 인증서]."""
+    """Each signer gets a certificate chain [own certificate, intermediate certificate]."""
     signers = b""
     for cert in certs:
         signed_data = lp(b"digests") + lp(lp(cert) + lp(b"intermediate")) + lp(b"attrs")
@@ -27,13 +27,13 @@ def v2_value(*certs: bytes) -> bytes:
 
 
 def v3_value(cert: bytes) -> bytes:
-    sdk = struct.pack("<II", 28, 0x7FFFFFFF)  # minSdk/maxSdk — 길이 접두 없음
+    sdk = struct.pack("<II", 28, 0x7FFFFFFF)  # minSdk/maxSdk, no length prefix
     signed_data = lp(b"digests") + lp(lp(cert)) + sdk + lp(b"attrs")
     return lp(lp(lp(signed_data) + sdk + lp(b"signatures") + lp(b"pubkey")))
 
 
 def make_apk(pairs, *, comment=b"", payload=b"x" * 1000) -> bytes:
-    """zip 을 만들고 Central Directory 앞에 서명 블록을 끼워 넣는다 (EOCD 의 CD 오프셋 보정)."""
+    """Build a zip and insert a signing block before the Central Directory (fixing the EOCD's CD offset)."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
         z.writestr("AndroidManifest.xml", payload)
@@ -97,9 +97,9 @@ def test_not_a_zip(tmp_path):
 
 @pytest.fixture
 def range_server(monkeypatch):
-    """구글 다운로드 경로 흉내: /download 는 /cdn 으로 302, /cdn 은 시작-끝 범위만 206 으로 준다.
+    """Mimics Google's download path: /download 302s to /cdn, /cdn answers start-end ranges only, with 206.
 
-    끝 기준 범위(bytes=-N)는 구글 CDN 처럼 416. state['honor_range']=False 면 Range 를 무시하고 200.
+    Suffix ranges (bytes=-N) get 416, like Google's CDN. With state['honor_range']=False, Range is ignored (200).
     """
     state = {"data": b"", "honor_range": True, "requests": []}
 
@@ -149,11 +149,11 @@ def test_http_range_probes_size_then_reads_tail(range_server):
 
     assert [s.cert_der for s in read_signers(reader)] == [b"cert-A"]
     assert reader.size == len(data)
-    assert reader.fetched < 100_000  # 2MB 중 끝부분만
+    assert reader.fetched < 100_000  # only the tail of 2MB
     reqs = range_server["requests"]
     assert reqs[0] == {"path": "/download", "range": "bytes=0-0", "cookie": "MarketDA=cookie-value"}
     assert reqs[2]["range"] == f"bytes={len(data) - 65557}-{len(data) - 1}"
-    assert all(r["path"] == "/cdn" for r in reqs[1:])  # 리다이렉트는 처음 한 번만
+    assert all(r["path"] == "/cdn" for r in reqs[1:])  # the redirect is followed only once
 
 
 def test_http_range_with_known_size_skips_probe(range_server):
@@ -163,7 +163,7 @@ def test_http_range_with_known_size_skips_probe(range_server):
 
 
 def test_http_small_file_tail(range_server):
-    data = range_server["data"] = make_apk([(V2, v2_value(b"cert-A"))])  # EOCD 탐색 범위보다 작음
+    data = range_server["data"] = make_apk([(V2, v2_value(b"cert-A"))])  # smaller than the EOCD search window
     reader = HttpRangeReader(range_server["url"], size=len(data))
     assert [s.cert_der for s in read_signers(reader)] == [b"cert-A"]
     assert range_server["requests"][0]["range"] == f"bytes=0-{len(data) - 1}"

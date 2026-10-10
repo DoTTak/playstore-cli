@@ -6,9 +6,9 @@ import pytest
 
 
 class FakeServer:
-    """로컬 HTTP 대역. respond() 로 경로별 응답을 정하고, 받은 요청은 requests 에 쌓인다.
+    """Local HTTP stand-in. respond() sets per-path responses; received requests pile up in requests.
 
-    같은 경로에 respond() 를 여러 번 하면 그 순서대로 응답하고, 마지막 응답은 계속 반복한다.
+    Calling respond() several times for one path answers in that order and keeps repeating the last one.
     """
 
     def __init__(self):
@@ -18,7 +18,7 @@ class FakeServer:
         threading.Thread(target=self._srv.serve_forever, daemon=True).start()
 
     def respond(self, body: bytes | str, status: int = 200, path: str | None = None):
-        """path 를 생략하면 다른 경로에 걸리지 않은 모든 요청의 응답이 된다."""
+        """Without path, this answers every request not matched by another path."""
         self.routes.setdefault(path, []).append(
             (status, body.encode() if isinstance(body, str) else body))
 
