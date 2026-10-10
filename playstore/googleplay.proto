@@ -178,6 +178,10 @@ message AppDetails {
   optional string versionString = 4;
   optional string title = 5;
   optional int64 installationSize = 9;
+  // 매니페스트의 uses-permission 을 이 기기(SDK)에 맞게 가공한 목록이다. maxSdkVersion 이 기기 SDK 보다 낮은
+  // 권한은 빠지고, 암묵적 권한은 더해진다 (YouTube: 매니페스트 50개 + WRITE_EXTERNAL_STORAGE 가 붙이는
+  // READ_EXTERNAL_STORAGE = 51개)
+  repeated string permission = 10;
   optional string numDownloads = 13;
   optional string packageName = 14;
   optional string uploadDate = 16;

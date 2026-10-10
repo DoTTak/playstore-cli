@@ -120,6 +120,9 @@ def cmd_details(args) -> int:
     print(f"업데이트 {a.uploadDate}")
     print(f"설치수   {a.numDownloads}")  # 값에 "다운로드 …회 이상" 문구가 포함돼 옴
     print(f"크기     {a.installationSize / 1024 / 1024:.1f} MB")
+    print(f"권한     {len(a.permission)}개")
+    for perm in a.permission:
+        print(f"  {perm}")
     return 0
 
 
