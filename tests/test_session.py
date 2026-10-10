@@ -186,3 +186,69 @@ def test_certificate_hashes_from_details():
 
 def test_certificate_hashes_missing():
     assert api.certificate_hashes(pb.DocV2()) == []
+
+
+def app(pkg: str) -> pb.DocV2:
+    return pb.DocV2(docid=pkg, docType=1, title=pkg.upper())
+
+
+def stream(*clusters: pb.DocV2, next_page: str = "") -> pb.ListResponse:
+    return pb.ListResponse(doc=[pb.DocV2(
+        child=clusters, containerMetadata=pb.ContainerMetadata(nextPageUrl=next_page))])
+
+
+def cluster(*children: pb.DocV2, next_page: str = "") -> pb.DocV2:
+    return pb.DocV2(docType=45, child=children, containerMetadata=pb.ContainerMetadata(nextPageUrl=next_page))
+
+
+def serve_search(srv, first: pb.ListResponse):
+    # 첫 페이지는 결과를 preFetch 에 담고 payload 에는 searchResponse 만 둔다 (실제 응답 구조)
+    srv.respond(pb.ResponseWrapper(
+        payload=pb.Payload(searchResponse=pb.SearchResponse(originalQuery="은행")),
+        preFetch=[pb.PreFetch(response=pb.ResponseWrapper(payload=pb.Payload(listResponse=first)))],
+    ).SerializeToString(), path="/fdfe/search")
+
+
+def test_search_follows_cluster_then_stream_pages(play_server):
+    related = pb.DocV2(docType=53, title="국민은행")  # 관련 검색어 — 앱이 아님
+    serve_search(play_server, stream(
+        cluster(app("a.one"), app("a.two"), next_page="getCluster?enpt=E1"),
+        next_page="searchList?q=%EC%9D%80%ED%96%89&ctntkn=T1"))
+    play_server.respond(wrap(listResponse=stream(cluster(app("a.three")))), path="/fdfe/getCluster")
+    play_server.respond(wrap(listResponse=stream(cluster(related), cluster(app("a.two"), app("a.four")))),
+                        path="/fdfe/searchList")
+
+    apps = PlayApi(DEVICE, SESSION).search("은행")
+
+    # 첫 묶음의 다음 결과(getCluster)가 다음 묶음(searchList)보다 앞
+    assert [a.docid for a in apps] == ["a.one", "a.two", "a.three", "a.four"]
+    assert [r["path"] for r in play_server.requests] == ["/fdfe/search", "/fdfe/getCluster", "/fdfe/searchList"]
+    first, by_cluster, by_stream = play_server.requests
+    assert parse_qs(first["query"]) == {"q": ["은행"], "c": ["3"], "ksm": ["1"]}
+    assert parse_qs(by_cluster["query"]) == {"enpt": ["E1"]}
+    assert parse_qs(by_stream["query"])["ctntkn"] == ["T1"]
+    for req in play_server.requests:
+        assert req["headers"]["User-Agent"] == api.LEGACY_USER_AGENT
+        assert req["headers"]["Authorization"] == "Bearer play-token"
+
+
+def test_search_limit_skips_next_page(play_server):
+    serve_search(play_server, stream(cluster(app("a.one"), app("a.two"), app("a.three")),
+                                     next_page="searchList?q=x&ctntkn=T1"))
+
+    assert [a.docid for a in PlayApi(DEVICE, SESSION).search("x", limit=2)] == ["a.one", "a.two"]
+    assert not play_server.by_path("/fdfe/searchList")
+
+
+def test_search_stops_on_page_without_new_apps(play_server):
+    serve_search(play_server, stream(cluster(app("a.one")), next_page="searchList?q=x&ctntkn=T1"))
+    play_server.respond(wrap(listResponse=stream(next_page="searchList?q=x&ctntkn=T2")),
+                        path="/fdfe/searchList")
+
+    assert [a.docid for a in PlayApi(DEVICE, SESSION).search("x")] == ["a.one"]
+    assert len(play_server.by_path("/fdfe/searchList")) == 1
+
+
+def test_search_no_results(play_server):
+    serve_search(play_server, stream())
+    assert PlayApi(DEVICE, SESSION).search("zzzz") == []

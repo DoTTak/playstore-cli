@@ -123,14 +123,29 @@ def cmd_details(args) -> int:
     return 0
 
 
+def _price(doc) -> str:
+    return next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "무료")
+
+
+def cmd_search(args) -> int:
+    apps = _with_api(lambda api: api.search(args.query, args.limit))
+    if not apps:
+        print(f"검색 결과가 없습니다: {args.query}", file=sys.stderr)
+        return 1
+    for i, doc in enumerate(apps, 1):
+        a = doc.details.appDetails
+        print(f"{i:>3}. {doc.title} — {doc.creator}")
+        print(f"     {doc.docid} · {a.versionString} · {a.numDownloads} · {_price(doc)}")
+    return 0
+
+
 def cmd_cert(args) -> int:
     doc = _with_api(lambda api: api.details(args.package))
     if not doc.docid:
         print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
         return 1
     a = doc.details.appDetails
-    price = next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "무료")
-    print(f"{doc.title} {a.versionString} ({a.versionCode}) — {price}")
+    print(f"{doc.title} {a.versionString} ({a.versionCode}) — {_price(doc)}")
 
     hashes = certificate_hashes(doc)
     print("Play details 의 서명 인증서:" if hashes else "details 응답에 서명 정보(certificateSet)가 없습니다.")
@@ -222,6 +237,11 @@ def main(argv=None) -> int:
     de = sub.add_parser("details", help="앱 상세 정보 조회")
     de.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
     de.set_defaults(func=cmd_details)
+
+    sr = sub.add_parser("search", help="앱 검색 → 패키지명 찾기")
+    sr.add_argument("query", help="검색어 (예: youtube)")
+    sr.add_argument("-n", "--limit", type=int, default=20, help="최대 결과 수 (기본 20)")
+    sr.set_defaults(func=cmd_search)
 
     ce = sub.add_parser("cert", help="정식 서명 인증서 해시 (details 의 certificateSet)")
     ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")

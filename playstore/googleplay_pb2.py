@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aplaystore/googleplay.proto\x12\tplaystore\"\x94\x02\n\x11\x41ndroidBuildProto\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07product\x18\x02 \x01(\t\x12\x0f\n\x07\x63\x61rrier\x18\x03 \x01(\t\x12\r\n\x05radio\x18\x04 \x01(\t\x12\x12\n\nbootloader\x18\x05 \x01(\t\x12\x0e\n\x06\x63lient\x18\x06 \x01(\t\x12\x11\n\ttimestamp\x18\x07 \x01(\x03\x12\x16\n\x0egoogleServices\x18\x08 \x01(\x05\x12\x0e\n\x06\x64\x65vice\x18\t \x01(\t\x12\x12\n\nsdkVersion\x18\n \x01(\x05\x12\r\n\x05model\x18\x0b \x01(\t\x12\x14\n\x0cmanufacturer\x18\x0c \x01(\t\x12\x14\n\x0c\x62uildProduct\x18\r \x01(\t\x12\x14\n\x0cotaInstalled\x18\x0e \x01(\x08\"\xab\x01\n\x13\x41ndroidCheckinProto\x12+\n\x05\x62uild\x18\x01 \x01(\x0b\x32\x1c.playstore.AndroidBuildProto\x12\x17\n\x0flastCheckinMsec\x18\x02 \x01(\x03\x12\x14\n\x0c\x63\x65llOperator\x18\x06 \x01(\t\x12\x13\n\x0bsimOperator\x18\x07 \x01(\t\x12\x0f\n\x07roaming\x18\x08 \x01(\t\x12\x12\n\nuserNumber\x18\t \x01(\x05\"\xb5\x03\n\x18\x44\x65viceConfigurationProto\x12\x13\n\x0btouchScreen\x18\x01 \x01(\x05\x12\x10\n\x08keyboard\x18\x02 \x01(\x05\x12\x12\n\nnavigation\x18\x03 \x01(\x05\x12\x14\n\x0cscreenLayout\x18\x04 \x01(\x05\x12\x17\n\x0fhasHardKeyboard\x18\x05 \x01(\x08\x12\x1c\n\x14hasFiveWayNavigation\x18\x06 \x01(\x08\x12\x15\n\rscreenDensity\x18\x07 \x01(\x05\x12\x13\n\x0bglEsVersion\x18\x08 \x01(\x05\x12\x1b\n\x13systemSharedLibrary\x18\t \x03(\t\x12\x1e\n\x16systemAvailableFeature\x18\n \x03(\t\x12\x16\n\x0enativePlatform\x18\x0b \x03(\t\x12\x13\n\x0bscreenWidth\x18\x0c \x01(\x05\x12\x14\n\x0cscreenHeight\x18\r \x01(\x05\x12\x1d\n\x15systemSupportedLocale\x18\x0e \x03(\t\x12\x13\n\x0bglExtension\x18\x0f \x03(\t\x12\x13\n\x0b\x64\x65viceClass\x18\x10 \x01(\x05\x12\x1c\n\x14maxApkDownloadSizeMb\x18\x11 \x01(\x05\"\x89\x02\n\x15\x41ndroidCheckinRequest\x12\n\n\x02id\x18\x02 \x01(\x03\x12/\n\x07\x63heckin\x18\x04 \x01(\x0b\x32\x1e.playstore.AndroidCheckinProto\x12\x0e\n\x06locale\x18\x06 \x01(\t\x12\x15\n\raccountCookie\x18\x0b \x03(\t\x12\x10\n\x08timeZone\x18\x0c \x01(\t\x12\x15\n\rsecurityToken\x18\r \x01(\x06\x12\x0f\n\x07version\x18\x0e \x01(\x05\x12@\n\x13\x64\x65viceConfiguration\x18\x12 \x01(\x0b\x32#.playstore.DeviceConfigurationProto\x12\x10\n\x08\x66ragment\x18\x14 \x01(\x05\"\x9e\x01\n\x16\x41ndroidCheckinResponse\x12\x0f\n\x07statsOk\x18\x01 \x01(\x08\x12\x10\n\x08timeMsec\x18\x03 \x01(\x03\x12\x10\n\x08marketOk\x18\x06 \x01(\x08\x12\x11\n\tandroidId\x18\x07 \x01(\x06\x12\x15\n\rsecurityToken\x18\x08 \x01(\x06\x12%\n\x1d\x64\x65viceCheckinConsistencyToken\x18\x0c \x01(\t\"c\n\x0fResponseWrapper\x12#\n\x07payload\x18\x01 \x01(\x0b\x32\x12.playstore.Payload\x12+\n\x08\x63ommands\x18\x02 \x01(\x0b\x32\x19.playstore.ServerCommands\"]\n\x0eServerCommands\x12\x12\n\nclearCache\x18\x01 \x01(\x08\x12\x1b\n\x13\x64isplayErrorMessage\x18\x02 \x01(\t\x12\x1a\n\x12logErrorStacktrace\x18\x03 \x01(\t\"\xd3\x02\n\x07Payload\x12\x33\n\x0f\x64\x65tailsResponse\x18\x02 \x01(\x0b\x32\x1a.playstore.DetailsResponse\x12+\n\x0b\x62uyResponse\x18\x04 \x01(\x0b\x32\x16.playstore.BuyResponse\x12+\n\x0btocResponse\x18\x06 \x01(\x0b\x32\x16.playstore.TocResponse\x12\x35\n\x10\x64\x65liveryResponse\x18\x15 \x01(\x0b\x32\x1b.playstore.DeliveryResponse\x12\x37\n\x11\x61\x63\x63\x65ptTosResponse\x18\x16 \x01(\x0b\x32\x1c.playstore.AcceptTosResponse\x12I\n\x1auploadDeviceConfigResponse\x18\x1c \x01(\x0b\x32%.playstore.UploadDeviceConfigResponse\"\x8e\x01\n\x19UploadDeviceConfigRequest\x12@\n\x13\x64\x65viceConfiguration\x18\x01 \x01(\x0b\x32#.playstore.DeviceConfigurationProto\x12\x14\n\x0cmanufacturer\x18\x02 \x01(\t\x12\x19\n\x11gcmRegistrationId\x18\x03 \x01(\t\"=\n\x1aUploadDeviceConfigResponse\x12\x1f\n\x17uploadDeviceConfigToken\x18\x01 \x01(\t\"g\n\x0bTocResponse\x12\x12\n\ntosContent\x18\x03 \x01(\t\x12\x10\n\x08tosToken\x18\x07 \x01(\t\x12\"\n\x1arequiresUploadDeviceConfig\x18\x0b \x01(\x08\x12\x0e\n\x06\x63ookie\x18\x16 \x01(\t\"\x13\n\x11\x41\x63\x63\x65ptTosResponse\"2\n\x0f\x44\x65tailsResponse\x12\x1f\n\x05\x64ocV2\x18\x04 \x01(\x0b\x32\x10.playstore.DocV2\"\x84\x01\n\x05\x44ocV2\x12\r\n\x05\x64ocid\x18\x01 \x01(\t\x12\r\n\x05title\x18\x05 \x01(\t\x12\x0f\n\x07\x63reator\x18\x06 \x01(\t\x12\x1f\n\x05offer\x18\x08 \x03(\x0b\x32\x10.playstore.Offer\x12+\n\x07\x64\x65tails\x18\r \x01(\x0b\x32\x1a.playstore.DocumentDetails\"Y\n\x05Offer\x12\x0e\n\x06micros\x18\x01 \x01(\x03\x12\x14\n\x0c\x63urrencyCode\x18\x02 \x01(\t\x12\x17\n\x0f\x66ormattedAmount\x18\x03 \x01(\t\x12\x11\n\tofferType\x18\x08 \x01(\x05\"<\n\x0f\x44ocumentDetails\x12)\n\nappDetails\x18\x01 \x01(\x0b\x32\x15.playstore.AppDetails\"\xea\x01\n\nAppDetails\x12\x15\n\rdeveloperName\x18\x01 \x01(\t\x12\x13\n\x0bversionCode\x18\x03 \x01(\x05\x12\x15\n\rversionString\x18\x04 \x01(\t\x12\r\n\x05title\x18\x05 \x01(\t\x12\x18\n\x10installationSize\x18\t \x01(\x03\x12\x14\n\x0cnumDownloads\x18\r \x01(\t\x12\x13\n\x0bpackageName\x18\x0e \x01(\t\x12\x12\n\nuploadDate\x18\x10 \x01(\t\x12\x31\n\x0e\x63\x65rtificateSet\x18\x16 \x03(\x0b\x32\x19.playstore.CertificateSet\".\n\x0e\x43\x65rtificateSet\x12\x0c\n\x04sha1\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\"$\n\x0b\x42uyResponse\x12\x15\n\rdownloadToken\x18\x37 \x01(\t\"N\n\x10\x44\x65liveryResponse\x12:\n\x0f\x61ppDeliveryData\x18\x02 \x01(\x0b\x32!.playstore.AndroidAppDeliveryData\"\xe9\x01\n\x16\x41ndroidAppDeliveryData\x12\x14\n\x0c\x64ownloadSize\x18\x01 \x01(\x03\x12\x0c\n\x04sha1\x18\x02 \x01(\t\x12\x13\n\x0b\x64ownloadUrl\x18\x03 \x01(\t\x12\x32\n\x0e\x61\x64\x64itionalFile\x18\x04 \x03(\x0b\x32\x1a.playstore.AppFileMetadata\x12\x31\n\x12\x64ownloadAuthCookie\x18\x05 \x03(\x0b\x32\x15.playstore.HttpCookie\x12\x1f\n\x05split\x18\x0f \x03(\x0b\x32\x10.playstore.Split\x12\x0e\n\x06sha256\x18\x13 \x01(\t\"i\n\x0f\x41ppFileMetadata\x12\x10\n\x08\x66ileType\x18\x01 \x01(\x05\x12\x13\n\x0bversionCode\x18\x02 \x01(\x05\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x13\n\x0b\x64ownloadUrl\x18\x04 \x01(\t\x12\x0c\n\x04sha1\x18\x08 \x01(\t\")\n\nHttpCookie\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"V\n\x05Split\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x0c\n\x04sha1\x18\x04 \x01(\t\x12\x13\n\x0b\x64ownloadUrl\x18\x05 \x01(\t\x12\x0e\n\x06sha256\x18\t \x01(\t')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aplaystore/googleplay.proto\x12\tplaystore\"\x94\x02\n\x11\x41ndroidBuildProto\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07product\x18\x02 \x01(\t\x12\x0f\n\x07\x63\x61rrier\x18\x03 \x01(\t\x12\r\n\x05radio\x18\x04 \x01(\t\x12\x12\n\nbootloader\x18\x05 \x01(\t\x12\x0e\n\x06\x63lient\x18\x06 \x01(\t\x12\x11\n\ttimestamp\x18\x07 \x01(\x03\x12\x16\n\x0egoogleServices\x18\x08 \x01(\x05\x12\x0e\n\x06\x64\x65vice\x18\t \x01(\t\x12\x12\n\nsdkVersion\x18\n \x01(\x05\x12\r\n\x05model\x18\x0b \x01(\t\x12\x14\n\x0cmanufacturer\x18\x0c \x01(\t\x12\x14\n\x0c\x62uildProduct\x18\r \x01(\t\x12\x14\n\x0cotaInstalled\x18\x0e \x01(\x08\"\xab\x01\n\x13\x41ndroidCheckinProto\x12+\n\x05\x62uild\x18\x01 \x01(\x0b\x32\x1c.playstore.AndroidBuildProto\x12\x17\n\x0flastCheckinMsec\x18\x02 \x01(\x03\x12\x14\n\x0c\x63\x65llOperator\x18\x06 \x01(\t\x12\x13\n\x0bsimOperator\x18\x07 \x01(\t\x12\x0f\n\x07roaming\x18\x08 \x01(\t\x12\x12\n\nuserNumber\x18\t \x01(\x05\"\xb5\x03\n\x18\x44\x65viceConfigurationProto\x12\x13\n\x0btouchScreen\x18\x01 \x01(\x05\x12\x10\n\x08keyboard\x18\x02 \x01(\x05\x12\x12\n\nnavigation\x18\x03 \x01(\x05\x12\x14\n\x0cscreenLayout\x18\x04 \x01(\x05\x12\x17\n\x0fhasHardKeyboard\x18\x05 \x01(\x08\x12\x1c\n\x14hasFiveWayNavigation\x18\x06 \x01(\x08\x12\x15\n\rscreenDensity\x18\x07 \x01(\x05\x12\x13\n\x0bglEsVersion\x18\x08 \x01(\x05\x12\x1b\n\x13systemSharedLibrary\x18\t \x03(\t\x12\x1e\n\x16systemAvailableFeature\x18\n \x03(\t\x12\x16\n\x0enativePlatform\x18\x0b \x03(\t\x12\x13\n\x0bscreenWidth\x18\x0c \x01(\x05\x12\x14\n\x0cscreenHeight\x18\r \x01(\x05\x12\x1d\n\x15systemSupportedLocale\x18\x0e \x03(\t\x12\x13\n\x0bglExtension\x18\x0f \x03(\t\x12\x13\n\x0b\x64\x65viceClass\x18\x10 \x01(\x05\x12\x1c\n\x14maxApkDownloadSizeMb\x18\x11 \x01(\x05\"\x89\x02\n\x15\x41ndroidCheckinRequest\x12\n\n\x02id\x18\x02 \x01(\x03\x12/\n\x07\x63heckin\x18\x04 \x01(\x0b\x32\x1e.playstore.AndroidCheckinProto\x12\x0e\n\x06locale\x18\x06 \x01(\t\x12\x15\n\raccountCookie\x18\x0b \x03(\t\x12\x10\n\x08timeZone\x18\x0c \x01(\t\x12\x15\n\rsecurityToken\x18\r \x01(\x06\x12\x0f\n\x07version\x18\x0e \x01(\x05\x12@\n\x13\x64\x65viceConfiguration\x18\x12 \x01(\x0b\x32#.playstore.DeviceConfigurationProto\x12\x10\n\x08\x66ragment\x18\x14 \x01(\x05\"\x9e\x01\n\x16\x41ndroidCheckinResponse\x12\x0f\n\x07statsOk\x18\x01 \x01(\x08\x12\x10\n\x08timeMsec\x18\x03 \x01(\x03\x12\x10\n\x08marketOk\x18\x06 \x01(\x08\x12\x11\n\tandroidId\x18\x07 \x01(\x06\x12\x15\n\rsecurityToken\x18\x08 \x01(\x06\x12%\n\x1d\x64\x65viceCheckinConsistencyToken\x18\x0c \x01(\t\"\x8a\x01\n\x0fResponseWrapper\x12#\n\x07payload\x18\x01 \x01(\x0b\x32\x12.playstore.Payload\x12+\n\x08\x63ommands\x18\x02 \x01(\x0b\x32\x19.playstore.ServerCommands\x12%\n\x08preFetch\x18\x03 \x03(\x0b\x32\x13.playstore.PreFetch\"E\n\x08PreFetch\x12\x0b\n\x03url\x18\x01 \x01(\t\x12,\n\x08response\x18\x02 \x01(\x0b\x32\x1a.playstore.ResponseWrapper\"]\n\x0eServerCommands\x12\x12\n\nclearCache\x18\x01 \x01(\x08\x12\x1b\n\x13\x64isplayErrorMessage\x18\x02 \x01(\t\x12\x1a\n\x12logErrorStacktrace\x18\x03 \x01(\t\"\xb5\x03\n\x07Payload\x12-\n\x0clistResponse\x18\x01 \x01(\x0b\x32\x17.playstore.ListResponse\x12\x33\n\x0f\x64\x65tailsResponse\x18\x02 \x01(\x0b\x32\x1a.playstore.DetailsResponse\x12+\n\x0b\x62uyResponse\x18\x04 \x01(\x0b\x32\x16.playstore.BuyResponse\x12\x31\n\x0esearchResponse\x18\x05 \x01(\x0b\x32\x19.playstore.SearchResponse\x12+\n\x0btocResponse\x18\x06 \x01(\x0b\x32\x16.playstore.TocResponse\x12\x35\n\x10\x64\x65liveryResponse\x18\x15 \x01(\x0b\x32\x1b.playstore.DeliveryResponse\x12\x37\n\x11\x61\x63\x63\x65ptTosResponse\x18\x16 \x01(\x0b\x32\x1c.playstore.AcceptTosResponse\x12I\n\x1auploadDeviceConfigResponse\x18\x1c \x01(\x0b\x32%.playstore.UploadDeviceConfigResponse\"\x8e\x01\n\x19UploadDeviceConfigRequest\x12@\n\x13\x64\x65viceConfiguration\x18\x01 \x01(\x0b\x32#.playstore.DeviceConfigurationProto\x12\x14\n\x0cmanufacturer\x18\x02 \x01(\t\x12\x19\n\x11gcmRegistrationId\x18\x03 \x01(\t\"=\n\x1aUploadDeviceConfigResponse\x12\x1f\n\x17uploadDeviceConfigToken\x18\x01 \x01(\t\"g\n\x0bTocResponse\x12\x12\n\ntosContent\x18\x03 \x01(\t\x12\x10\n\x08tosToken\x18\x07 \x01(\t\x12\"\n\x1arequiresUploadDeviceConfig\x18\x0b \x01(\x08\x12\x0e\n\x06\x63ookie\x18\x16 \x01(\t\"\x13\n\x11\x41\x63\x63\x65ptTosResponse\"2\n\x0f\x44\x65tailsResponse\x12\x1f\n\x05\x64ocV2\x18\x04 \x01(\x0b\x32\x10.playstore.DocV2\"\xef\x01\n\x05\x44ocV2\x12\r\n\x05\x64ocid\x18\x01 \x01(\t\x12\x0f\n\x07\x64ocType\x18\x03 \x01(\x05\x12\r\n\x05title\x18\x05 \x01(\t\x12\x0f\n\x07\x63reator\x18\x06 \x01(\t\x12\x1f\n\x05offer\x18\x08 \x03(\x0b\x32\x10.playstore.Offer\x12\x1f\n\x05\x63hild\x18\x0b \x03(\x0b\x32\x10.playstore.DocV2\x12\x37\n\x11\x63ontainerMetadata\x18\x0c \x01(\x0b\x32\x1c.playstore.ContainerMetadata\x12+\n\x07\x64\x65tails\x18\r \x01(\x0b\x32\x1a.playstore.DocumentDetails\"(\n\x11\x43ontainerMetadata\x12\x13\n\x0bnextPageUrl\x18\x02 \x01(\t\"T\n\x0eSearchResponse\x12\x15\n\roriginalQuery\x18\x01 \x01(\t\x12\x16\n\x0esuggestedQuery\x18\x02 \x01(\t\x12\x13\n\x0bnextPageUrl\x18\n \x01(\t\"-\n\x0cListResponse\x12\x1d\n\x03\x64oc\x18\x02 \x03(\x0b\x32\x10.playstore.DocV2\"Y\n\x05Offer\x12\x0e\n\x06micros\x18\x01 \x01(\x03\x12\x14\n\x0c\x63urrencyCode\x18\x02 \x01(\t\x12\x17\n\x0f\x66ormattedAmount\x18\x03 \x01(\t\x12\x11\n\tofferType\x18\x08 \x01(\x05\"<\n\x0f\x44ocumentDetails\x12)\n\nappDetails\x18\x01 \x01(\x0b\x32\x15.playstore.AppDetails\"\xea\x01\n\nAppDetails\x12\x15\n\rdeveloperName\x18\x01 \x01(\t\x12\x13\n\x0bversionCode\x18\x03 \x01(\x05\x12\x15\n\rversionString\x18\x04 \x01(\t\x12\r\n\x05title\x18\x05 \x01(\t\x12\x18\n\x10installationSize\x18\t \x01(\x03\x12\x14\n\x0cnumDownloads\x18\r \x01(\t\x12\x13\n\x0bpackageName\x18\x0e \x01(\t\x12\x12\n\nuploadDate\x18\x10 \x01(\t\x12\x31\n\x0e\x63\x65rtificateSet\x18\x16 \x03(\x0b\x32\x19.playstore.CertificateSet\".\n\x0e\x43\x65rtificateSet\x12\x0c\n\x04sha1\x18\x01 \x01(\t\x12\x0e\n\x06sha256\x18\x02 \x01(\t\"$\n\x0b\x42uyResponse\x12\x15\n\rdownloadToken\x18\x37 \x01(\t\"N\n\x10\x44\x65liveryResponse\x12:\n\x0f\x61ppDeliveryData\x18\x02 \x01(\x0b\x32!.playstore.AndroidAppDeliveryData\"\xe9\x01\n\x16\x41ndroidAppDeliveryData\x12\x14\n\x0c\x64ownloadSize\x18\x01 \x01(\x03\x12\x0c\n\x04sha1\x18\x02 \x01(\t\x12\x13\n\x0b\x64ownloadUrl\x18\x03 \x01(\t\x12\x32\n\x0e\x61\x64\x64itionalFile\x18\x04 \x03(\x0b\x32\x1a.playstore.AppFileMetadata\x12\x31\n\x12\x64ownloadAuthCookie\x18\x05 \x03(\x0b\x32\x15.playstore.HttpCookie\x12\x1f\n\x05split\x18\x0f \x03(\x0b\x32\x10.playstore.Split\x12\x0e\n\x06sha256\x18\x13 \x01(\t\"i\n\x0f\x41ppFileMetadata\x12\x10\n\x08\x66ileType\x18\x01 \x01(\x05\x12\x13\n\x0bversionCode\x18\x02 \x01(\x05\x12\x0c\n\x04size\x18\x03 \x01(\x03\x12\x13\n\x0b\x64ownloadUrl\x18\x04 \x01(\t\x12\x0c\n\x04sha1\x18\x08 \x01(\t\")\n\nHttpCookie\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"V\n\x05Split\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04size\x18\x02 \x01(\x03\x12\x0c\n\x04sha1\x18\x04 \x01(\t\x12\x13\n\x0b\x64ownloadUrl\x18\x05 \x01(\t\x12\x0e\n\x06sha256\x18\t \x01(\t')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,42 +41,50 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_ANDROIDCHECKINREQUEST']._serialized_end=1200
   _globals['_ANDROIDCHECKINRESPONSE']._serialized_start=1203
   _globals['_ANDROIDCHECKINRESPONSE']._serialized_end=1361
-  _globals['_RESPONSEWRAPPER']._serialized_start=1363
-  _globals['_RESPONSEWRAPPER']._serialized_end=1462
-  _globals['_SERVERCOMMANDS']._serialized_start=1464
-  _globals['_SERVERCOMMANDS']._serialized_end=1557
-  _globals['_PAYLOAD']._serialized_start=1560
-  _globals['_PAYLOAD']._serialized_end=1899
-  _globals['_UPLOADDEVICECONFIGREQUEST']._serialized_start=1902
-  _globals['_UPLOADDEVICECONFIGREQUEST']._serialized_end=2044
-  _globals['_UPLOADDEVICECONFIGRESPONSE']._serialized_start=2046
-  _globals['_UPLOADDEVICECONFIGRESPONSE']._serialized_end=2107
-  _globals['_TOCRESPONSE']._serialized_start=2109
-  _globals['_TOCRESPONSE']._serialized_end=2212
-  _globals['_ACCEPTTOSRESPONSE']._serialized_start=2214
-  _globals['_ACCEPTTOSRESPONSE']._serialized_end=2233
-  _globals['_DETAILSRESPONSE']._serialized_start=2235
-  _globals['_DETAILSRESPONSE']._serialized_end=2285
-  _globals['_DOCV2']._serialized_start=2288
-  _globals['_DOCV2']._serialized_end=2420
-  _globals['_OFFER']._serialized_start=2422
-  _globals['_OFFER']._serialized_end=2511
-  _globals['_DOCUMENTDETAILS']._serialized_start=2513
-  _globals['_DOCUMENTDETAILS']._serialized_end=2573
-  _globals['_APPDETAILS']._serialized_start=2576
-  _globals['_APPDETAILS']._serialized_end=2810
-  _globals['_CERTIFICATESET']._serialized_start=2812
-  _globals['_CERTIFICATESET']._serialized_end=2858
-  _globals['_BUYRESPONSE']._serialized_start=2860
-  _globals['_BUYRESPONSE']._serialized_end=2896
-  _globals['_DELIVERYRESPONSE']._serialized_start=2898
-  _globals['_DELIVERYRESPONSE']._serialized_end=2976
-  _globals['_ANDROIDAPPDELIVERYDATA']._serialized_start=2979
-  _globals['_ANDROIDAPPDELIVERYDATA']._serialized_end=3212
-  _globals['_APPFILEMETADATA']._serialized_start=3214
-  _globals['_APPFILEMETADATA']._serialized_end=3319
-  _globals['_HTTPCOOKIE']._serialized_start=3321
-  _globals['_HTTPCOOKIE']._serialized_end=3362
-  _globals['_SPLIT']._serialized_start=3364
-  _globals['_SPLIT']._serialized_end=3450
+  _globals['_RESPONSEWRAPPER']._serialized_start=1364
+  _globals['_RESPONSEWRAPPER']._serialized_end=1502
+  _globals['_PREFETCH']._serialized_start=1504
+  _globals['_PREFETCH']._serialized_end=1573
+  _globals['_SERVERCOMMANDS']._serialized_start=1575
+  _globals['_SERVERCOMMANDS']._serialized_end=1668
+  _globals['_PAYLOAD']._serialized_start=1671
+  _globals['_PAYLOAD']._serialized_end=2108
+  _globals['_UPLOADDEVICECONFIGREQUEST']._serialized_start=2111
+  _globals['_UPLOADDEVICECONFIGREQUEST']._serialized_end=2253
+  _globals['_UPLOADDEVICECONFIGRESPONSE']._serialized_start=2255
+  _globals['_UPLOADDEVICECONFIGRESPONSE']._serialized_end=2316
+  _globals['_TOCRESPONSE']._serialized_start=2318
+  _globals['_TOCRESPONSE']._serialized_end=2421
+  _globals['_ACCEPTTOSRESPONSE']._serialized_start=2423
+  _globals['_ACCEPTTOSRESPONSE']._serialized_end=2442
+  _globals['_DETAILSRESPONSE']._serialized_start=2444
+  _globals['_DETAILSRESPONSE']._serialized_end=2494
+  _globals['_DOCV2']._serialized_start=2497
+  _globals['_DOCV2']._serialized_end=2736
+  _globals['_CONTAINERMETADATA']._serialized_start=2738
+  _globals['_CONTAINERMETADATA']._serialized_end=2778
+  _globals['_SEARCHRESPONSE']._serialized_start=2780
+  _globals['_SEARCHRESPONSE']._serialized_end=2864
+  _globals['_LISTRESPONSE']._serialized_start=2866
+  _globals['_LISTRESPONSE']._serialized_end=2911
+  _globals['_OFFER']._serialized_start=2913
+  _globals['_OFFER']._serialized_end=3002
+  _globals['_DOCUMENTDETAILS']._serialized_start=3004
+  _globals['_DOCUMENTDETAILS']._serialized_end=3064
+  _globals['_APPDETAILS']._serialized_start=3067
+  _globals['_APPDETAILS']._serialized_end=3301
+  _globals['_CERTIFICATESET']._serialized_start=3303
+  _globals['_CERTIFICATESET']._serialized_end=3349
+  _globals['_BUYRESPONSE']._serialized_start=3351
+  _globals['_BUYRESPONSE']._serialized_end=3387
+  _globals['_DELIVERYRESPONSE']._serialized_start=3389
+  _globals['_DELIVERYRESPONSE']._serialized_end=3467
+  _globals['_ANDROIDAPPDELIVERYDATA']._serialized_start=3470
+  _globals['_ANDROIDAPPDELIVERYDATA']._serialized_end=3703
+  _globals['_APPFILEMETADATA']._serialized_start=3705
+  _globals['_APPFILEMETADATA']._serialized_end=3810
+  _globals['_HTTPCOOKIE']._serialized_start=3812
+  _globals['_HTTPCOOKIE']._serialized_end=3853
+  _globals['_SPLIT']._serialized_start=3855
+  _globals['_SPLIT']._serialized_end=3941
 # @@protoc_insertion_point(module_scope)

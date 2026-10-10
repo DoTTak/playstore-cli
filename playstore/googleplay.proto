@@ -80,6 +80,13 @@ message AndroidCheckinResponse {
 message ResponseWrapper {
   optional Payload payload = 1;
   optional ServerCommands commands = 2;
+  repeated PreFetch preFetch = 3;
+}
+
+// 응답에 미리 실어 보내는 다른 요청의 응답. search 는 결과 목록을 여기에 담아 준다.
+message PreFetch {
+  optional string url = 1;
+  optional ResponseWrapper response = 2;
 }
 
 message ServerCommands {
@@ -89,8 +96,10 @@ message ServerCommands {
 }
 
 message Payload {
+  optional ListResponse listResponse = 1;
   optional DetailsResponse detailsResponse = 2;
   optional BuyResponse buyResponse = 4;
+  optional SearchResponse searchResponse = 5;
   optional TocResponse tocResponse = 6;
   optional DeliveryResponse deliveryResponse = 21;
   optional AcceptTosResponse acceptTosResponse = 22;
@@ -127,10 +136,29 @@ message DetailsResponse {
 
 message DocV2 {
   optional string docid = 1;
+  optional int32 docType = 3;                // 1 = 앱, 45 = 묶음(클러스터), 46 = 스트림
   optional string title = 5;
   optional string creator = 6;
   repeated Offer offer = 8;
+  repeated DocV2 child = 11;                 // 묶음 안의 문서들
+  optional ContainerMetadata containerMetadata = 12;
   optional DocumentDetails details = 13;
+}
+
+message ContainerMetadata {
+  optional string nextPageUrl = 2;           // fdfe/ 기준 상대 경로 (searchList?…)
+}
+
+// --- search (fdfe/search?q=…&c=3) -------------------------------------------
+
+message SearchResponse {
+  optional string originalQuery = 1;
+  optional string suggestedQuery = 2;
+  optional string nextPageUrl = 10;
+}
+
+message ListResponse {
+  repeated DocV2 doc = 2;
 }
 
 message Offer {

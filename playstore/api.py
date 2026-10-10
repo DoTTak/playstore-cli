@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
 
 import requests
 from google.protobuf.message import DecodeError
@@ -17,6 +18,10 @@ FDFE_URL = "https://android.clients.google.com/fdfe/"
 
 # Aurora 가 보내는 X-DFE-Encoded-Targets 값 (실험·기능 대상 목록, 불투명 상수)
 ENCODED_TARGETS = "CAESN/qigQYC2AMBFfUbyA7SM5Ij/CvfBoIDgxXrBPsDlQUdMfOLAfoFrwEHgAcBrQYhoA0cGt4MKK0Y2gI"
+
+# search 를 기기 프로필의 최신 Play User-Agent 로 보내면 결과 묶음이 빈 채로 온다
+# ("은행", "calculator" 모두 앱 0개, 실제 응답에서 확인). Aurora 의 구버전 Play User-Agent 로 보내면 채워져 온다.
+LEGACY_USER_AGENT = "Android-Finsky/29.2.15-21 [0] [PR] 426536134 (api=3,versionCode=82921510,sdk=25)"
 
 
 class PlayApiError(Exception):
@@ -31,6 +36,13 @@ class NotDownloadable(Exception):
 
 def _b64url_hex(s: str) -> str:
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4)).hex()
+
+
+def _apps(doc: pb.DocV2) -> list[pb.DocV2]:
+    """묶음(클러스터) 트리 안의 앱 문서들 (docType 1). 관련 검색어(53) 같은 다른 문서는 건너뛴다."""
+    if doc.docType == 1:
+        return [doc]
+    return [app for child in doc.child for app in _apps(child)]
 
 
 def certificate_hashes(doc: pb.DocV2) -> list[tuple[str, str]]:
@@ -112,6 +124,46 @@ class PlayApi:
 
     def details(self, package: str) -> pb.DocV2:
         return self.request("GET", "details", params={"doc": package}).payload.detailsResponse.docV2
+
+    def _search_page(self, path: str, params: dict | None = None) -> tuple[list[pb.DocV2], list[str]]:
+        """검색 결과 한 페이지 → (앱 목록, 이어지는 페이지 경로들).
+
+        첫 페이지(search)는 결과를 preFetch 에, 이후 페이지는 payload 에 담아 준다.
+        어느 쪽이든 listResponse.doc = 스트림 → 묶음들 → 앱들이다. 이어지는 경로는 두 종류:
+          묶음의 nextPageUrl (getCluster?…) = 그 묶음의 다음 결과
+          스트림의 nextPageUrl (searchList?…) = 다음 묶음들
+        """
+        w = self.request("GET", path, params=params, extra_headers={"User-Agent": LEGACY_USER_AGENT})
+        apps, nexts = [], []
+        for wrapper in [w, *(p.response for p in w.preFetch)]:
+            for stream in wrapper.payload.listResponse.doc:
+                for cluster in stream.child:
+                    apps += _apps(cluster)
+                    nexts.append(cluster.containerMetadata.nextPageUrl)
+                nexts.append(stream.containerMetadata.nextPageUrl)
+        return apps, [n for n in nexts if n]
+
+    def search(self, query: str, limit: int = 20) -> list[pb.DocV2]:
+        """앱 검색. 이어지는 페이지를 앞에서부터 따라가며 중복 없이 limit 개까지 모은다.
+
+        "은행" 기준 첫 페이지 20개, 그 묶음의 다음 결과 5개, 다음 묶음부터 7개씩 온다.
+        """
+        found: dict[str, pb.DocV2] = {}
+        queue = deque([("search", {"q": query, "c": "3", "ksm": "1"})])
+        queued: set[str] = set()
+        while queue and len(found) < limit:
+            apps, nexts = self._search_page(*queue.popleft())
+            before = len(found)
+            for app in apps:
+                found.setdefault(app.docid, app)
+            if len(found) == before:
+                # 새 앱이 없는 페이지의 경로는 따라가지 않는다 — 빈 페이지만 계속 이어지는 응답에 갇히지 않게
+                continue
+            for n in nexts:
+                if n not in queued:
+                    queued.add(n)
+                    queue.append((n, None))
+        return list(found.values())[:limit]
 
     def purchase(self, package: str, version_code: int) -> str:
         """무료 앱을 계정 보관함에 추가('획득')한다. downloadToken 이 오면 delivery 에 넘긴다."""
