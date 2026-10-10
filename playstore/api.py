@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import base64
+
 import requests
 from google.protobuf.message import DecodeError
 
@@ -25,6 +27,16 @@ class PlayApiError(Exception):
 
 class NotDownloadable(Exception):
     """유료 앱, 기기 비호환 등으로 다운로드 URL 을 받을 수 없음."""
+
+
+def _b64url_hex(s: str) -> str:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4)).hex()
+
+
+def certificate_hashes(doc: pb.DocV2) -> list[tuple[str, str]]:
+    """details 응답의 서명 인증서 해시 [(SHA-1, SHA-256) hex]. 구매·다운로드 없이 얻는다."""
+    return [(_b64url_hex(c.sha1), _b64url_hex(c.sha256))
+            for c in doc.details.appDetails.certificateSet]
 
 
 class PlayApi:

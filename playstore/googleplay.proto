@@ -153,6 +153,16 @@ message AppDetails {
   optional string numDownloads = 13;
   optional string packageName = 14;
   optional string uploadDate = 16;
+  repeated CertificateSet certificateSet = 22;  // gpapi 정의엔 없음 — 실제 응답에서 확인
+}
+
+// 서명 인증서 해시. 값은 base64url(패딩 없음) 인코딩이다.
+// 유료 앱도 구매 없이 온다. 인증서가 여러 개일 수 있고, APK 의 서명자와 꼭 같지는 않다 — YouTube 21.40.161:
+//   details = 4ba713df…, 24bb24c0… / APK v3(SDK 24~32) = 24bb24c0…, v3.1(SDK 33~, 교체된 키) = f8456b1d…
+//   (apksigner 결과와 일치. 4ba713df… 는 APK 서명·lineage 어디에도 없음)
+message CertificateSet {
+  optional string sha1 = 1;
+  optional string sha256 = 2;
 }
 
 // --- purchase / delivery (fdfe/purchase, fdfe/delivery) ----------------------

@@ -5,7 +5,7 @@ import argparse
 import sys
 
 from . import apksig, auth, browser, checkin, session, store
-from .api import NotDownloadable, PlayApi, PlayApiError
+from .api import NotDownloadable, PlayApi, PlayApiError, certificate_hashes
 from .device import DEFAULT_PROFILE, Profile
 
 
@@ -121,20 +121,35 @@ def cmd_details(args) -> int:
 
 
 def cmd_cert(args) -> int:
-    doc, data = _with_api(lambda api: api.app_delivery(args.package))
+    doc = _with_api(lambda api: api.details(args.package))
+    if not doc.docid:
+        print(f"앱 정보가 없습니다: {args.package}", file=sys.stderr)
+        return 1
     a = doc.details.appDetails
-    print(f"{doc.title} {a.versionString} ({a.versionCode}) — base.apk {data.downloadSize / 1024 / 1024:.1f} MB,"
-          f" split {len(data.split)}개")
+    price = next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "무료")
+    print(f"{doc.title} {a.versionString} ({a.versionCode}) — {price}")
 
+    hashes = certificate_hashes(doc)
+    print("Play details 의 서명 인증서:" if hashes else "details 응답에 서명 정보(certificateSet)가 없습니다.")
+    for sha1, sha256 in hashes:
+        print(f"  SHA-1   {sha1}")
+        print(f"  SHA-256 {sha256}")
+    if not args.apk:
+        return 0 if hashes else 1
+
+    _, data = _with_api(lambda api: api.app_delivery(args.package))
     reader = apksig.HttpRangeReader(data.downloadUrl,
                                     {c.name: c.value for c in data.downloadAuthCookie},
                                     size=data.downloadSize)
     signers = apksig.read_signers(reader)
-    print(f"서명 블록만 읽음: Range {reader.requests}회, {reader.fetched / 1024:.1f} KB")
+    print(f"APK 서명 블록 (base.apk {data.downloadSize / 1024 / 1024:.1f} MB 중 "
+          f"Range {reader.requests}회 {reader.fetched / 1024:.1f} KB):")
     for s in signers:
         print(f"  {s.scheme:<4} SHA-1   {s.sha1}")
         print(f"       SHA-256 {s.sha256}")
-    return 0
+    same = {s.sha1 for s in signers} & {sha1 for sha1, _ in hashes}
+    print("→ details 와 일치" if same else "→ details 와 불일치!")
+    return 0 if same else 1
 
 
 def main(argv=None) -> int:
@@ -162,8 +177,10 @@ def main(argv=None) -> int:
     de.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
     de.set_defaults(func=cmd_details)
 
-    ce = sub.add_parser("cert", help="정식 APK 서명 인증서 해시 (APK 끝부분만 받아 추출)")
+    ce = sub.add_parser("cert", help="정식 서명 인증서 해시 (details 의 certificateSet)")
     ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
+    ce.add_argument("--apk", action="store_true",
+                    help="APK 끝부분을 받아 서명 블록과 대조 (무료 앱만, 보관함에 없으면 purchase 함)")
     ce.set_defaults(func=cmd_cert)
 
     args = p.parse_args(argv)

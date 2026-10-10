@@ -145,3 +145,22 @@ def test_app_delivery_incompatible(play_server):
     serve_details(play_server, version_code=0)
     with pytest.raises(api.NotDownloadable, match="versionCode=0"):
         PlayApi(DEVICE, SESSION).app_delivery("com.google.android.youtube")
+
+
+def test_certificate_hashes_from_details():
+    # YouTube 21.40.161 details 실제 응답의 certificateSet 값 (base64url) — 인증서 2개
+    doc = pb.DocV2(details=pb.DocumentDetails(appDetails=pb.AppDetails(certificateSet=[
+        pb.CertificateSet(sha1="S6cT3-zpPUdXLcXoRaeoLEqJHy8",
+                          sha256="f9LOoww6YCLrKUGc6Pb5LOikvTWwzIee08ymy_XpmS0"),
+        pb.CertificateSet(sha1="JLskwF5H4K76aKWKdmF52bYTpgA",
+                          sha256="PXoSIwGao52eoONDarfAiWv7T7Z59N5f58I_MmyPmUo")])))
+
+    assert api.certificate_hashes(doc) == [
+        ("4ba713dfece93d47572dc5e845a7a82c4a891f2f",
+         "7fd2cea30c3a6022eb29419ce8f6f92ce8a4bd35b0cc879ed3cca6cbf5e9992d"),
+        ("24bb24c05e47e0aefa68a58a766179d9b613a600",
+         "3d7a1223019aa39d9ea0e3436ab7c0896bfb4fb679f4de5fe7c23f326c8f994a")]
+
+
+def test_certificate_hashes_missing():
+    assert api.certificate_hashes(pb.DocV2()) == []
