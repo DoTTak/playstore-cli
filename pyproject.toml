@@ -29,6 +29,11 @@ dependencies = [
     "websocket-client>=1.8",
 ]
 
+[project.urls]
+Homepage = "https://github.com/DoTTak/playstore-cli"
+Repository = "https://github.com/DoTTak/playstore-cli"
+Issues = "https://github.com/DoTTak/playstore-cli/issues"
+
 [project.scripts]
 playstore-cli = "playstore_cli.__main__:main"
 
