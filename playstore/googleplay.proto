@@ -145,6 +145,7 @@ message DocV2 {
   optional ContainerMetadata containerMetadata = 12;
   optional DocumentDetails details = 13;
   optional AggregateRating aggregateRating = 14;
+  optional RelatedLinks relatedLinks = 15;
 }
 
 message ContainerMetadata {
@@ -172,6 +173,27 @@ message SearchResponse {
 
 message ListResponse {
   repeated DocV2 doc = 2;
+}
+
+// --- top charts (fdfe/listTopChartItems?c=3&scat=<category>&stcid=<chart>) ---
+// Same ListResponse shape as search: stream -> cluster -> apps, 7 apps per page,
+// continued through the cluster's nextPageUrl (getCluster?...).
+
+// --- categories (fdfe/categoriesList?c=3&cat=APPLICATION|GAME) ---------------
+// ListResponse: stream -> one "all categories" cluster -> one doc per category.
+
+// Only the path down to the category home is kept (names as in gpapi).
+// A category doc carries homeV2?cat=<category ID>&c=3 here.
+message RelatedLinks {
+  optional RelatedLinksUnknown1 unknown1 = 10;
+}
+
+message RelatedLinksUnknown1 {
+  optional RelatedLinksUnknown2 unknown2 = 2;
+}
+
+message RelatedLinksUnknown2 {
+  optional string homeUrl = 2;
 }
 
 message Offer {

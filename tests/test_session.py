@@ -301,3 +301,45 @@ def test_reviews_unknown_app_is_empty(play_server):
 
     assert PlayApi(DEVICE, SESSION).reviews("com.example.nope") == []
     assert len(play_server.requests) == 1
+
+
+def test_top_chart_follows_cluster_pages(play_server):
+    # Ranks come 7 per page in the payload; the cluster links the next page through getCluster
+    play_server.respond(wrap(listResponse=stream(cluster(app("a.one"), app("a.two"),
+                                                         next_page="getCluster?enpt=E1"))),
+                        path="/fdfe/listTopChartItems")
+    play_server.respond(wrap(listResponse=stream(cluster(app("a.three"), next_page="getCluster?enpt=E2"))),
+                        path="/fdfe/getCluster")
+
+    apps = PlayApi(DEVICE, SESSION).top_chart("FINANCE", "paid", limit=3)
+
+    assert [a.docid for a in apps] == ["a.one", "a.two", "a.three"]
+    first, nxt = play_server.requests  # limit reached: E2 is not fetched
+    assert (first["path"], parse_qs(first["query"])) == (
+        "/fdfe/listTopChartItems", {"c": ["3"], "scat": ["FINANCE"], "stcid": ["apps_topselling_paid"]})
+    assert parse_qs(nxt["query"]) == {"enpt": ["E1"]}
+    for req in play_server.requests:  # device profile User-Agent, not the legacy one used by search
+        assert req["headers"]["User-Agent"] != api.LEGACY_USER_AGENT
+        assert req["headers"]["User-Agent"].startswith("Android-Finsky/")
+
+
+def test_top_chart_unknown_category(play_server):
+    play_server.respond(wrap(listResponse=pb.ListResponse(doc=[pb.DocV2()])), path="/fdfe/listTopChartItems")
+    assert PlayApi(DEVICE, SESSION).top_chart("NOPE") == []
+
+
+def category(cat_id: str, name: str) -> pb.DocV2:
+    return pb.DocV2(title=name, relatedLinks=pb.RelatedLinks(unknown1=pb.RelatedLinksUnknown1(
+        unknown2=pb.RelatedLinksUnknown2(homeUrl=f"homeV2?cat={cat_id}&c=3"))))
+
+
+def test_categories(play_server):
+    play_server.respond(wrap(listResponse=stream(pb.DocV2(docType=45, title="전체 카테고리", child=[
+        category("GAME_ACTION", "액션"), pb.DocV2(title="no home link"), category("GAME_PUZZLE", "퍼즐")]))),
+        path="/fdfe/categoriesList")
+
+    assert PlayApi(DEVICE, SESSION).categories("GAME") == [("GAME_ACTION", "액션"), ("GAME_PUZZLE", "퍼즐")]
+
+    (req,) = play_server.requests
+    assert parse_qs(req["query"]) == {"c": ["3"], "cat": ["GAME"]}
+    assert req["headers"]["User-Agent"] == api.LEGACY_USER_AGENT

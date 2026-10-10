@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 from collections import deque
+from urllib.parse import parse_qs, urlsplit
 
 import requests
 from google.protobuf.message import DecodeError
@@ -22,6 +23,7 @@ ENCODED_TARGETS = "CAESN/qigQYC2AMBFfUbyA7SM5Ij/CvfBoIDgxXrBPsDlQUdMfOLAfoFrwEHg
 # Sending search with the device profile's current Play User-Agent returns empty result clusters
 # (0 apps for both "bank" in Korean and "calculator", seen in real responses). With Aurora's legacy
 # Play User-Agent the clusters come back filled.
+# categoriesList likewise: the current User-Agent gets a newer stream format with no listResponse.
 LEGACY_USER_AGENT = "Android-Finsky/29.2.15-21 [0] [PR] 426536134 (api=3,versionCode=82921510,sdk=25)"
 
 # sort values for rev (checked against real responses). Relevance order matches the reviews shown on
@@ -30,6 +32,15 @@ REVIEW_SORT = {"relevant": "2", "newest": "0"}
 # Reviews per rev request. n=1000 also comes back in one response (about 500 KB), but paging keeps
 # each response small
 REVIEW_PAGE_SIZE = 100
+
+# Top chart kind -> listTopChartItems stcid. The category ID (APPLICATION, GAME, FINANCE,
+# GAME_ACTION, ...) goes in scat.
+TOP_CHARTS = {
+    "free": "apps_topselling_free",
+    "paid": "apps_topselling_paid",
+    "grossing": "apps_topgrossing",
+    "trending": "apps_movers_shakers",
+}
 
 
 class PlayApiError(Exception):
@@ -133,15 +144,17 @@ class PlayApi:
     def details(self, package: str) -> pb.DocV2:
         return self.request("GET", "details", params={"doc": package}).payload.detailsResponse.docV2
 
-    def _search_page(self, path: str, params: dict | None = None) -> tuple[list[pb.DocV2], list[str]]:
-        """One page of search results → (apps, paths of the pages that follow).
+    def _list_page(self, path: str, params: dict | None = None,
+                   headers: dict | None = None) -> tuple[list[pb.DocV2], list[str]]:
+        """One page of a list → (apps, paths of the pages that follow).
 
         The first page (search) puts its results in preFetch; later pages put them in the payload.
         Either way listResponse.doc = stream → clusters → apps. There are two kinds of follow-up paths:
           a cluster's nextPageUrl (getCluster?…) = the next results of that cluster
           the stream's nextPageUrl (searchList?…) = the next clusters
+        Top charts come in the same shape, in the payload, continued through getCluster only.
         """
-        w = self.request("GET", path, params=params, extra_headers={"User-Agent": LEGACY_USER_AGENT})
+        w = self.request("GET", path, params=params, extra_headers=headers)
         apps, nexts = [], []
         for wrapper in [w, *(p.response for p in w.preFetch)]:
             for stream in wrapper.payload.listResponse.doc:
@@ -151,16 +164,14 @@ class PlayApi:
                 nexts.append(stream.containerMetadata.nextPageUrl)
         return apps, [n for n in nexts if n]
 
-    def search(self, query: str, limit: int = 20) -> list[pb.DocV2]:
-        """Search apps. Follow the follow-up pages in order and collect up to limit apps without duplicates.
-
-        For "bank" (in Korean): 20 on the first page, 5 more from that cluster, then about 7 per later cluster.
-        """
+    def _collect(self, path: str, params: dict, limit: int,
+                 headers: dict | None = None) -> list[pb.DocV2]:
+        """Follow the next pages from the first one in order, collecting up to limit apps without duplicates."""
         found: dict[str, pb.DocV2] = {}
-        queue = deque([("search", {"q": query, "c": "3", "ksm": "1"})])
+        queue = deque([(path, params)])
         queued: set[str] = set()
         while queue and len(found) < limit:
-            apps, nexts = self._search_page(*queue.popleft())
+            apps, nexts = self._list_page(*queue.popleft(), headers)
             before = len(found)
             for app in apps:
                 found.setdefault(app.docid, app)
@@ -172,6 +183,38 @@ class PlayApi:
                     queued.add(n)
                     queue.append((n, None))
         return list(found.values())[:limit]
+
+    def search(self, query: str, limit: int = 20) -> list[pb.DocV2]:
+        """Search apps. Follow the follow-up pages in order and collect up to limit apps without duplicates.
+
+        For "bank" (in Korean): 20 on the first page, 5 more from that cluster, then about 7 per later cluster.
+        """
+        return self._collect("search", {"q": query, "c": "3", "ksm": "1"}, limit,
+                             {"User-Agent": LEGACY_USER_AGENT})
+
+    def top_chart(self, category: str = "APPLICATION", chart: str = "free",
+                  limit: int = 20) -> list[pb.DocV2]:
+        """Apps of a category's top chart (a TOP_CHARTS key), in rank order.
+
+        Pages hold 7 apps and end around rank 200. An unknown category gets an empty chart, not an error.
+        Unlike search this keeps the device's current User-Agent: the legacy one returns the same
+        apps with some ranks reordered (FINANCE free: ranks 23-37 and 104-108).
+        """
+        return self._collect("listTopChartItems",
+                             {"c": "3", "scat": category, "stcid": TOP_CHARTS[chart]}, limit)
+
+    def categories(self, parent: str = "APPLICATION") -> list[tuple[str, str]]:
+        """Subcategories of APPLICATION or GAME as [(category ID, name)], names in the device locale."""
+        w = self.request("GET", "categoriesList", params={"c": "3", "cat": parent},
+                         extra_headers={"User-Agent": LEGACY_USER_AGENT})
+        found = []
+        for stream in w.payload.listResponse.doc:
+            for cluster in stream.child:
+                for doc in cluster.child:
+                    home = urlsplit(doc.relatedLinks.unknown1.unknown2.homeUrl)  # homeV2?cat=FINANCE&c=3
+                    if cat := parse_qs(home.query).get("cat"):
+                        found.append((cat[0], doc.title))
+        return found
 
     def reviews(self, package: str, limit: int = 20, *, sort: str = "relevant",
                 rating: int = 0) -> list[pb.Review]:

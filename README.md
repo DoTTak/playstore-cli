@@ -7,6 +7,7 @@ Play 스토어 앱이 쓰는 내부 API(fdfe)를 직접 호출해서 다음을 �
 - 구글 계정 로그인, 가상 기기 등록
 - 앱 검색, 상세 정보와 권한 목록 조회
 - 평점 요약과 리뷰(개발자 답변 포함) 조회
+- 카테고리별 순위 (인기 무료·인기 유료·최고 매출·인기 급상승)
 - 정식 서명 인증서 해시(SHA-1, SHA-256) 조회. 실제 APK의 서명 블록과 대조도 가능
 - APK 다운로드 (base·split APK, OBB, 과거 버전)
 
@@ -26,6 +27,7 @@ uv sync
 uv run python -m playstore login                               # 1. 구글 로그인 → AAS 토큰
 uv run python -m playstore checkin                             # 2. 가상 기기 등록 → gsfId
 uv run python -m playstore search youtube                      # 패키지명 찾기
+uv run python -m playstore top 금융                            # 카테고리별 순위 (인기 무료)
 uv run python -m playstore details com.google.android.youtube  # 상세 정보·권한
 uv run python -m playstore reviews com.google.android.youtube  # 평점·리뷰
 uv run python -m playstore cert com.google.android.youtube     # 정식 서명 해시
@@ -42,6 +44,8 @@ uv run python -m playstore download com.google.android.youtube # APK 다운로�
 | `checkin` | 가상 기기 등록 → gsfId 저장 |
 | `session` | Play 세션 생성 (보통은 자동으로 만들어져서 직접 쓸 일이 없음) |
 | `search <검색어>` | 앱 검색 |
+| `top [카테고리]` | 카테고리별 순위 (인기 무료·유료, 최고 매출, 인기 급상승) |
+| `categories` | 카테고리 ID와 이름 목록 |
 | `details <패키지>` | 앱 상세 정보와 권한 목록 |
 | `reviews <패키지>` | 평점 요약과 리뷰 |
 | `cert <패키지>` | 정식 서명 인증서의 SHA-1, SHA-256 |
@@ -81,6 +85,47 @@ uv run python -m playstore search youtube [-n 20]
 
 - 페이지를 넘기며 중복 없이 `-n`개까지 모읍니다. Play가 더 주지 않으면 거기서 끝납니다 ("youtube"는 463개).
 - 결과가 없는 검색어에도 Play는 인기 앱을 결과로 돌려줍니다.
+
+### top
+
+```bash
+uv run python -m playstore top [카테고리] [-c free|paid|grossing|trending] [-n 20]
+```
+
+```
+$ uv run python -m playstore top 게임 -c paid -n 3
+GAME 인기 유료 순위
+  1. 던전 머지! — Brilbox
+     com.brilbox.dungeonmerge · 1.0.41 · ₩70
+  2. Minecraft: 나만의 세계를 꿈꾸고 만들어보세요 — Mojang
+     com.mojang.minecraftpe · 1.26.52.3 · ₩9,900
+  3. 스타듀 밸리 Stardew Valley — ConcernedApe
+     com.chucklefish.stardewvalley · 1.6.15.3 · ₩5,900
+```
+
+- 카테고리는 ID(`FINANCE`, `game_action`처럼 대소문자 무관)나 `categories`에 나오는 이름(`금융`, `게임`)으로 줍니다. 생략하면 앱 전체(`APPLICATION`)입니다. 이름이 겹치는 카테고리(`스포츠` = `SPORTS`, `GAME_SPORTS`)는 ID로 지정해야 합니다.
+- `-c`: `free` 인기 무료(기본), `paid` 인기 유료, `grossing` 최고 매출, `trending` 인기 급상승.
+- 순위는 7개씩 받아 `-n`개까지 모읍니다. Play는 200위 안팎까지 줍니다 (200위까지 약 5초). 앱이 적은 순위는 더 짧습니다 (금융 인기 유료는 1개).
+- 순위 응답에는 설치 수가 없어서 출력에서 빠집니다.
+
+### categories
+
+```bash
+uv run python -m playstore categories
+```
+
+```
+APPLICATION              앱
+  HEALTH_AND_FITNESS     건강/운동
+  ...
+  FINANCE                금융
+  ...
+GAME                     게임
+  GAME_WORD              단어
+  ...
+```
+
+- `top`에 넘길 카테고리 ID와 이름입니다. 이름은 기기 locale로 옵니다 (앱 35개, 게임 17개).
 
 ### details
 
@@ -199,7 +244,7 @@ playstore/
   device.py          기기 프로필(.properties) → User-Agent, checkin 요청, 기기 구성
   checkin.py         가상 기기 등록 → gsfId
   session.py         Play 토큰 → 기기 구성 업로드 → 약관(toc)
-  api.py             fdfe API: details, search, reviews, purchase, delivery
+  api.py             fdfe API: details, search, top_chart, categories, reviews, purchase, delivery
   download.py        delivery 응답 → 파일 목록, 다운로드와 검증
   apksig.py          APK 서명 블록(v2/v3/v3.1) 파서 (로컬 파일 / HTTP Range)
   store.py           계정·기기·세션 저장
@@ -227,8 +272,10 @@ protoc -I. --python_out=. playstore/googleplay.proto
 - **서명 해시:** details 응답의 `AppDetails` 필드 22(`certificateSet`)에 인증서별 SHA-1·SHA-256이 base64url(패딩 없음)로 옵니다. 유료 앱이나 기기 비호환 앱도 마찬가지입니다. 다만 APK의 서명자 목록과 꼭 같지는 않습니다 ([cert](#cert) 참고).
 - **delivery 해시:** delivery 응답의 파일 `sha1`/`sha256`도 base64url(패딩 없음)입니다.
 - **없는 버전:** Play에 없는 versionCode로 delivery를 요청하면 오류 없이 `downloadUrl`만 빈 값으로 옵니다.
-- **검색 User-Agent:** 최신 Play User-Agent로 `search`를 보내면 결과 묶음이 빈 채로 와서, 검색만 구버전 User-Agent로 보냅니다. 결과는 묶음의 다음 결과(`getCluster?…`)와 다음 묶음(`searchList?…`) 두 경로로 이어집니다.
+- **검색 User-Agent:** 최신 Play User-Agent로 `search`를 보내면 결과 묶음이 빈 채로 와서, 검색은 구버전 User-Agent로 보냅니다. 결과는 묶음의 다음 결과(`getCluster?…`)와 다음 묶음(`searchList?…`) 두 경로로 이어집니다.
 - **리뷰:** `rev`의 `sort`는 `2`가 관련성순, `0`이 최신순입니다. 없는 앱에도 오류 없이 빈 목록(HTTP 200)이 오고, 다음 페이지 경로(`ptkn`)에 정렬과 별점 필터가 이어집니다. 리뷰의 "유용함" 수는 gpapi 정의에 없는 필드 38입니다.
+- **순위:** `listTopChartItems?c=3&scat=<카테고리 ID>&stcid=<순위 종류>`입니다. `stcid`는 `apps_topselling_free`, `apps_topselling_paid`, `apps_topgrossing`, `apps_movers_shakers`이고, `scat`에 `apps`처럼 카테고리 ID가 아닌 값을 넣으면 빈 목록이 옵니다. 다음 7개는 묶음의 `getCluster?…`로 이어집니다. 구버전 User-Agent로 보내도 같은 앱들이 오지만 일부 순위의 순서가 달라서(금융 인기 무료 23~37위 등) 순위는 기기 프로필의 User-Agent로 보냅니다.
+- **카테고리 목록:** 최신 Play User-Agent로 `categoriesList`를 보내면 `listResponse` 없이 새 스트림 형식으로 와서, 검색처럼 구버전 User-Agent로 보냅니다. 카테고리 ID는 각 문서의 카테고리 홈 경로(`homeV2?cat=FINANCE&c=3`)에 있습니다.
 - **권한 목록:** 매니페스트가 아니라 기기 SDK에 맞게 가공된 목록이 옵니다. `maxSdkVersion`으로 빠지는 권한이 있고, 암묵적 권한은 더해집니다.
 - **다운로드 CDN:** 구글 CDN(`*.gvt1.com`)은 끝 기준 Range(`bytes=-N`)를 416으로 거절합니다. 시작과 끝을 모두 지정해야 합니다.
 - **인증 요청 TLS:** `/auth`는 TLS ALPN을 보내거나 세션 티켓을 끄면 403 `BadAuthentication`을 줍니다 (gpsoauth와 같은 조정이 필요).

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from pathlib import Path
@@ -9,7 +10,7 @@ from pathlib import Path
 import requests
 
 from . import apksig, auth, browser, checkin, download, session, store
-from .api import REVIEW_SORT, NotDownloadable, PlayApi, PlayApiError, certificate_hashes
+from .api import REVIEW_SORT, TOP_CHARTS, NotDownloadable, PlayApi, PlayApiError, certificate_hashes
 from .device import DEFAULT_PROFILE, Profile
 
 
@@ -131,15 +132,63 @@ def _price(doc) -> str:
     return next((o.formattedAmount for o in doc.offer if o.offerType == 1 and o.micros), "무료")
 
 
+def _print_apps(apps) -> None:
+    for i, doc in enumerate(apps, 1):
+        a = doc.details.appDetails
+        print(f"{i:>3}. {doc.title} — {doc.creator}")
+        # top chart entries carry no install count
+        print("     " + " · ".join(x for x in [doc.docid, a.versionString, a.numDownloads, _price(doc)] if x))
+
+
 def cmd_search(args) -> int:
     apps = _with_api(lambda api: api.search(args.query, args.limit))
     if not apps:
         print(f"검색 결과가 없습니다: {args.query}", file=sys.stderr)
         return 1
-    for i, doc in enumerate(apps, 1):
-        a = doc.details.appDetails
-        print(f"{i:>3}. {doc.title} — {doc.creator}")
-        print(f"     {doc.docid} · {a.versionString} · {a.numDownloads} · {_price(doc)}")
+    _print_apps(apps)
+    return 0
+
+
+# Play app labels for the TOP_CHARTS keys
+_CHART_LABELS = {"free": "인기 무료", "paid": "인기 유료", "grossing": "최고 매출", "trending": "인기 급상승"}
+# Top-level categories; categoriesList only returns their subcategories
+_TOP_CATEGORIES = {"APPLICATION": "앱", "GAME": "게임"}
+
+
+def _category_id(api: PlayApi, name: str) -> str:
+    """Category ID from an ID in any case (finance) or a name as `categories` prints it (device locale)."""
+    if re.fullmatch(r"[A-Za-z_]+", name):
+        return name.upper()
+    named = [*_TOP_CATEGORIES.items(), *(c for top in _TOP_CATEGORIES for c in api.categories(top))]
+    ids = [cid for cid, title in named if title == name]
+    if not ids:
+        raise ValueError(f"카테고리를 찾지 못했습니다: {name} (목록은 categories 로 확인)")
+    if len(ids) > 1:
+        raise ValueError(f"이름이 같은 카테고리가 여러 개입니다: {name} → {', '.join(ids)} 중 ID 로 지정하세요")
+    return ids[0]
+
+
+def cmd_top(args) -> int:
+    def fetch(api):
+        category = _category_id(api, args.category)
+        return category, api.top_chart(category, args.chart, args.limit)
+
+    category, apps = _with_api(fetch)
+    title = f"{category} {_CHART_LABELS[args.chart]}"
+    if not apps:
+        print(f"순위가 없습니다: {title} (카테고리 ID 는 categories 로 확인)", file=sys.stderr)
+        return 1
+    print(f"{title} 순위")
+    _print_apps(apps)
+    return 0
+
+
+def cmd_categories(args) -> int:
+    groups = _with_api(lambda api: [(top, api.categories(top)) for top in _TOP_CATEGORIES])
+    for top, subs in groups:
+        print(f"{top:<24} {_TOP_CATEGORIES[top]}")
+        for cid, name in subs:
+            print(f"  {cid:<22} {name}")
     return 0
 
 
@@ -302,6 +351,17 @@ def main(argv=None) -> int:
     rv.add_argument("-r", "--rating", type=int, choices=range(1, 6), metavar="1-5",
                     help="이 별점의 리뷰만")
     rv.set_defaults(func=cmd_reviews)
+
+    tp = sub.add_parser("top", help="카테고리별 순위 (인기 무료·유료, 최고 매출, 인기 급상승)")
+    tp.add_argument("category", nargs="?", default="APPLICATION",
+                    help="카테고리 ID 또는 이름 (예: FINANCE, 금융, GAME, 게임). 생략하면 앱 전체")
+    tp.add_argument("-c", "--chart", choices=list(TOP_CHARTS), default="free",
+                    help=", ".join(f"{k}={v}" for k, v in _CHART_LABELS.items()) + " (기본 free)")
+    tp.add_argument("-n", "--limit", type=int, default=20, help="최대 순위 수 (기본 20, Play 는 200위 안팎까지)")
+    tp.set_defaults(func=cmd_top)
+
+    ca = sub.add_parser("categories", help="카테고리 ID·이름 목록 (top 에 넘길 값)")
+    ca.set_defaults(func=cmd_categories)
 
     ce = sub.add_parser("cert", help="정식 서명 인증서 해시 (details 의 certificateSet)")
     ce.add_argument("package", help="패키지명 (예: com.google.android.youtube)")
