@@ -381,6 +381,17 @@ playstore_cli/
 tests/               tests against local HTTP stand-ins (no requests to Google)
 ```
 
+### Releasing
+
+1. Bump `version` in `pyproject.toml` and commit it to `main`.
+2. Publish a GitHub release whose tag matches that version:
+
+   ```bash
+   gh release create v0.1.1 --generate-notes
+   ```
+
+Publishing the release runs [`.github/workflows/release.yml`](.github/workflows/release.yml): the tests on Python 3.10-3.13, the build, the upload to PyPI through [trusted publishing](https://docs.pypi.org/trusted-publishers/) (no API token), and the built files attached to the release. Running the workflow by hand only tests and builds.
+
 Issues and pull requests are welcome.
 
 ## Caveats
