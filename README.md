@@ -18,21 +18,9 @@
 > Google's terms of service, and the account you use may get restricted, so use a separate account.
 > See [Caveats](#caveats).
 
-```console
-$ playstore-cli search youtube -n 2
-  1. YouTube — Google LLC
-     com.google.android.youtube · 21.32.4 · 10,000,000,000+ downloads · Free
-  2. LINE: Calls & Messages — LINE (LY Corporation)
-     jp.naver.line.android · 26.15.1 · 1,000,000,000+ downloads · Free
-
-$ playstore-cli download com.google.android.youtube
-YouTube 21.32.4 (1561190505) — 4 files, 137.3 MB → downloads/com.google.android.youtube-1561190505
-  [1/4] base.apk (60.9 MB)  OK
-  [2/4] split_config.arm64_v8a.apk (73.3 MB)  OK
-  [3/4] split_config.en.apk (0.3 MB)  OK
-  [4/4] split_config.xxhdpi.apk (2.7 MB)  OK
-Install: adb install-multiple downloads/com.google.android.youtube-1561190505/*.apk
-```
+<p align="center">
+  <img alt="playstore-cli demo: search, details, signing certificates and download" src="https://raw.githubusercontent.com/DoTTak/playstore-cli/main/.github/playstore-cli.gif">
+</p>
 
 ## Contents
 
@@ -403,6 +391,14 @@ playstore_cli/
   googleplay.proto   Play protocol definitions, only the messages needed (googleplay_pb2.py is generated)
   profiles/          device profiles
 tests/               tests against local HTTP stand-ins (no requests to Google)
+```
+
+### Demo GIF
+
+The GIF at the top is recorded with [VHS](https://github.com/charmbracelet/vhs) from `.github/vhs/playstore-cli.tape`. It runs the real commands with the signed-in account (zsh and the D2Coding font are needed):
+
+```bash
+PATH="$PWD/.venv/bin:$PATH" vhs .github/vhs/playstore-cli.tape   # → .github/playstore-cli.gif
 ```
 
 ### Releasing

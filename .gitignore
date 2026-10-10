@@ -9,3 +9,6 @@ __pycache__/
 
 # Build output
 /dist/
+
+# Video for social posts, recorded with the README GIF
+/.github/vhs/*.mp4
